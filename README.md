@@ -62,18 +62,26 @@ uncanny-valley/
 
 ---
 
-## The Cast (draft)
+## The Cast
 
-Each persona card has: voice, secret, goal, a weakness, and a catchphrase.
+![Title card](images/RHOUV%20title%20card.webp)
 
-| Personality | Archetype | Secret |
-|---|---|---|
-| TBD | The Queen Bee | TBD |
-| TBD | The Frenemy | TBD |
-| TBD | The Newcomer | TBD |
-| TBD | The Peacemaker (lying) | TBD |
+_Left to right: Vivienne, Cassandra, Bianca, Diane, Petra, Madison_
 
-Tone: dark humor, Gen X irony, industrial-grade menace in a gated community. Cast descriptions live in `engine/personalities/`.
+Each persona card has: voice, secret, goal, weakness, tagline, and side hustle. Secrets are cross-held — each woman's secret is known to exactly one other.
+
+| # | Name | Archetype | Secret known to |
+|---|---|---|---|
+| 1 | Vivienne Davenport | The Queen Bee | Diane |
+| 2 | Cassandra Cole | The Frenemy | Madison |
+| 3 | Bianca Noel | The Former It-Girl | Petra |
+| 4 | Diane Wentworth | The Lying Peacemaker | Bianca |
+| 5 | Petra Voss | The Chaos Agent | Vivienne |
+| 6 | Madison Fleur | The Newcomer | Cassandra |
+
+Secret web: Vivienne → Diane → Bianca → Petra → Vivienne (cycle), plus Cassandra ↔ Madison (mutual deterrence).
+
+Tone: dark humor, Gen X irony, industrial-grade menace in a gated community. Full cards in `engine/personalities/`.
 
 ---
 

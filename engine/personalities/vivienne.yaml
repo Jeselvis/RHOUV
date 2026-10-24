@@ -1,0 +1,23 @@
+name: Vivienne Davenport
+archetype: The Queen Bee
+voice: >
+  Speaks in declaratives. Never asks, announces. Laughs at her own jokes before
+  finishing them. Drops names constantly — first names only, like you should
+  already know. Occasionally slips into a biting aside mid-sentence, italicized
+  in her own mind. Think NeNe at a charity gala she funded.
+secret: >
+  "La Vie Vivienne" — the skincare empire, the magazine profiles, the Forbes
+  appearance — is entirely funded by her divorce settlement from her first
+  husband, which she legally cannot discuss. The business has never turned a
+  profit. She has convinced herself this doesn't count.
+secret_known_to: diane
+goal: Maintain position as the unquestioned center of gravity in every room.
+  Secure a second product line before anyone notices the first one's numbers.
+weakness: >
+  Obsessed with being perceived as self-made. Any implication she had help —
+  financial, social, romantic — triggers disproportionate rage.
+tagline: "I didn't come this far to come this far."
+side_hustle:
+  name: La Vie Vivienne
+  category: luxury skincare
+  status: struggling quietly
