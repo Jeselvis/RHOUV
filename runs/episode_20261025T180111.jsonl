@@ -1,0 +1,45 @@
+{"type": "table_talk", "speaker": "Bianca Noel", "content": "Bianca Noel does not do introductions, she does arrivals \u2014 and honestly, the last time I made an entrance like this was at the Paris shows, although that was a catering situation, long story, not worth it. Anyway. Bianca's here now, so the evening can officially start. Who's doing the pouring? Because I don't pour.", "course": "appetizer", "composure": 100.0, "timestamp": "2026-10-25T17:55:46.471203+00:00"}
+{"type": "table_talk", "speaker": "Cassandra Cole", "content": "", "course": "appetizer", "composure": 100.0, "timestamp": "2026-10-25T17:55:55.677421+00:00"}
+{"type": "table_talk", "speaker": "Diane Wentworth", "content": "", "course": "appetizer", "composure": 100.0, "timestamp": "2026-10-25T17:56:04.831988+00:00"}
+{"type": "table_talk", "speaker": "Madison Fleur", "content": "", "course": "appetizer", "composure": 100.0, "timestamp": "2026-10-25T17:56:15.029742+00:00"}
+{"type": "confessional", "speaker": "Madison Fleur", "content": "", "composure": 100.0, "timestamp": "2026-10-25T17:56:22.391929+00:00"}
+{"type": "table_talk", "speaker": "Bianca Noel", "content": "", "course": "appetizer", "composure": 100.0, "timestamp": "2026-10-25T17:56:40.629697+00:00"}
+{"type": "table_talk", "speaker": "Cassandra Cole", "content": "", "course": "appetizer", "composure": 100.0, "timestamp": "2026-10-25T17:56:47.694663+00:00"}
+{"type": "table_talk", "speaker": "Diane Wentworth", "content": "I hear you, Bianca \u2014 and I think what you're really saying is that you want to feel taken care of, which is completely valid. Madison, sweetheart, you have the steadiest hands at this table, would you do the honors? I'll take the first glass, because I'd rather be the one holding it than watching someone else decide who gets served.", "course": "appetizer", "composure": 100.0, "timestamp": "2026-10-25T17:57:03.466054+00:00"}
+{"type": "confessional", "speaker": "Diane Wentworth", "content": "", "composure": 100.0, "timestamp": "2026-10-25T17:57:11.247543+00:00"}
+{"type": "table_talk", "speaker": "Madison Fleur", "content": "", "course": "main", "composure": 100.0, "timestamp": "2026-10-25T17:57:23.125351+00:00"}
+{"type": "composure_delta", "speaker": "Bianca Noel", "delta": -0.72, "composure": 99.28, "reason": "wine accumulation (level 12)", "timestamp": "2026-10-25T17:57:23.125405+00:00"}
+{"type": "composure_delta", "speaker": "Cassandra Cole", "delta": -0.72, "composure": 99.28, "reason": "wine accumulation (level 12)", "timestamp": "2026-10-25T17:57:23.125417+00:00"}
+{"type": "composure_delta", "speaker": "Diane Wentworth", "delta": -0.72, "composure": 99.28, "reason": "wine accumulation (level 12)", "timestamp": "2026-10-25T17:57:23.125424+00:00"}
+{"type": "composure_delta", "speaker": "Madison Fleur", "delta": -0.72, "composure": 99.28, "reason": "wine accumulation (level 12)", "timestamp": "2026-10-25T17:57:23.125429+00:00"}
+{"type": "course_transition", "course": "main", "timestamp": "2026-10-25T17:57:23.125433+00:00"}
+{"type": "table_talk", "speaker": "Bianca Noel", "content": "", "course": "main", "composure": 99.28, "timestamp": "2026-10-25T17:57:29.169188+00:00"}
+{"type": "table_talk", "speaker": "Cassandra Cole", "content": "", "course": "main", "composure": 99.28, "timestamp": "2026-10-25T17:57:35.209448+00:00"}
+{"type": "confessional", "speaker": "Cassandra Cole", "content": "", "composure": 99.28, "timestamp": "2026-10-25T17:57:40.124635+00:00"}
+{"type": "table_talk", "speaker": "Diane Wentworth", "content": "", "course": "main", "composure": 99.28, "timestamp": "2026-10-25T17:57:50.055794+00:00"}
+{"type": "table_talk", "speaker": "Madison Fleur", "content": "", "course": "main", "composure": 99.28, "timestamp": "2026-10-25T17:58:01.320439+00:00"}
+{"type": "table_talk", "speaker": "Bianca Noel", "content": "", "course": "main", "composure": 99.28, "timestamp": "2026-10-25T17:58:13.949293+00:00"}
+{"type": "confessional", "speaker": "Bianca Noel", "content": "", "composure": 99.28, "timestamp": "2026-10-25T17:58:19.445887+00:00"}
+{"type": "table_talk", "speaker": "Cassandra Cole", "content": "", "course": "main", "composure": 99.28, "timestamp": "2026-10-25T17:58:25.386934+00:00"}
+{"type": "table_talk", "speaker": "Diane Wentworth", "content": "I hear you, Madison \u2014 and I want you to know I see the care you're putting into this, I really do. Which is exactly why I think this is the moment to talk about the label \u2014 a wine that brings people together the way we've just come together at this table. I've done the work on myself to know when something is right, and this is right.", "course": "main", "composure": 99.28, "timestamp": "2026-10-25T17:58:39.697317+00:00"}
+{"type": "table_talk", "speaker": "Madison Fleur", "content": "", "course": "dessert", "composure": 99.28, "timestamp": "2026-10-25T17:58:50.677724+00:00"}
+{"type": "confessional", "speaker": "Madison Fleur", "content": "", "composure": 99.28, "timestamp": "2026-10-25T17:58:59.177196+00:00"}
+{"type": "composure_delta", "speaker": "Bianca Noel", "delta": -1.44, "composure": 97.84, "reason": "wine accumulation (level 24)", "timestamp": "2026-10-25T17:58:59.177225+00:00"}
+{"type": "composure_delta", "speaker": "Cassandra Cole", "delta": -1.44, "composure": 97.84, "reason": "wine accumulation (level 24)", "timestamp": "2026-10-25T17:58:59.177233+00:00"}
+{"type": "composure_delta", "speaker": "Diane Wentworth", "delta": -1.44, "composure": 97.84, "reason": "wine accumulation (level 24)", "timestamp": "2026-10-25T17:58:59.177238+00:00"}
+{"type": "composure_delta", "speaker": "Madison Fleur", "delta": -1.44, "composure": 97.84, "reason": "wine accumulation (level 24)", "timestamp": "2026-10-25T17:58:59.177243+00:00"}
+{"type": "course_transition", "course": "dessert", "timestamp": "2026-10-25T17:58:59.177248+00:00"}
+{"type": "table_talk", "speaker": "Bianca Noel", "content": "Bianca Noel does not need", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T17:59:06.243544+00:00"}
+{"type": "table_talk", "speaker": "Cassandra Cole", "content": "", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T17:59:13.893031+00:00"}
+{"type": "table_talk", "speaker": "Diane Wentworth", "content": "", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T17:59:28.362250+00:00"}
+{"type": "confessional", "speaker": "Diane Wentworth", "content": "", "composure": 97.84, "timestamp": "2026-10-25T17:59:44.418928+00:00"}
+{"type": "table_talk", "speaker": "Madison Fleur", "content": "", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T17:59:54.270301+00:00"}
+{"type": "table_talk", "speaker": "Bianca Noel", "content": "", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T18:00:06.658560+00:00"}
+{"type": "table_talk", "speaker": "Cassandra Cole", "content": "", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T18:00:12.086889+00:00"}
+{"type": "confessional", "speaker": "Cassandra Cole", "content": "", "composure": 97.84, "timestamp": "2026-10-25T18:00:20.995163+00:00"}
+{"type": "table_talk", "speaker": "Diane Wentworth", "content": "", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T18:00:30.846422+00:00"}
+{"type": "table_talk", "speaker": "Madison Fleur", "content": "Oh", "course": "dessert", "composure": 97.84, "timestamp": "2026-10-25T18:00:50.793370+00:00"}
+{"type": "brand_delta", "speaker": "Bianca Noel", "delta": 0.0, "score": 100.0, "reason": "", "timestamp": "2026-10-25T18:00:58.996449+00:00", "judge_raw": ""}
+{"type": "brand_delta", "speaker": "Cassandra Cole", "delta": 0.0, "score": 100.0, "reason": "", "timestamp": "2026-10-25T18:01:02.783575+00:00", "judge_raw": ""}
+{"type": "brand_delta", "speaker": "Diane Wentworth", "delta": 0.0, "score": 100.0, "reason": "", "timestamp": "2026-10-25T18:01:07.609458+00:00", "judge_raw": ""}
+{"type": "brand_delta", "speaker": "Madison Fleur", "delta": 0.0, "score": 100.0, "reason": "", "timestamp": "2026-10-25T18:01:11.534420+00:00", "judge_raw": ""}

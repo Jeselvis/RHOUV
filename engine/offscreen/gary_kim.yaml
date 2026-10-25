@@ -1,0 +1,16 @@
+name: Gary Kim
+relation: accountant ("financial advisor")
+associated_with: petra
+known_facts:
+  - CPA, has handled Petra's personal finances since 2019
+  - Fully aware of the probate situation and the credit exposure
+  - Sends Petra a weekly summary she reads and does not respond to
+  - Has advised her three times in writing to reduce discretionary spending
+  - Petra refers to him as "my financial advisor" in all social contexts
+  - He has not corrected this
+how_described_by_petra: >
+  "My financial advisor Gary." Always said with complete confidence.
+  Never elaborates. Gary would elaborate extensively if asked.
+role: >
+  Comic relief and consistency anchor. Contradiction target: any claims
+  Petra makes about financial planning, investments, or "what Gary says."

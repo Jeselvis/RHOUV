@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+html{background:#b9cddb;min-height:100%}body{margin:0;background:#b9cddb;min-height:100%;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#1b2330;-webkit-font-smoothing:antialiased}
+a{color:#8a6a22}a:hover{color:#2a43a6}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+
+<section style="display:flex;flex-wrap:wrap;gap:120px;padding:100px;align-items:flex-start">
+
+<!-- ============ 1a OPENING CREDITS ============ -->
+<div id="1a" style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:center;gap:12px;font-family:Cinzel,serif;font-size:22px;color:#1b2330;letter-spacing:.06em"><span style="background:#1b2330;color:#f1dc9b;padding:4px 12px;border-radius:3px;font-size:18px">1a</span>Opening Credits</div>
+  <div style="display:flex;align-items:center;gap:10px;max-width:1440px;background:#fffbea;border:1px solid #c79a3e;border-radius:4px;padding:12px 16px;font-size:14px;color:#2a1f08;line-height:1.45"><strong style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7a5c1c;flex:none">Data note</strong><span>Each card's <span style="font-family:ui-monospace,Menlo,monospace;font-size:13px">name</span>, <span style="font-family:ui-monospace,Menlo,monospace;font-size:13px">persona type</span> and <span style="font-family:ui-monospace,Menlo,monospace;font-size:13px">quote</span> are read from that personality's config file (served via <span style="font-family:ui-monospace,Menlo,monospace;font-size:13px">GET /personas</span>). Values shown here are placeholders.</span></div>
+  <div data-screen-label="Opening Credits" style="width:1440px;height:1000px;background:linear-gradient(180deg,#dfeaf2 0%,#c8dbe8 100%);position:relative;overflow:hidden;box-shadow:0 30px 80px -30px rgba(30,50,80,.45);display:flex;flex-direction:column">
+    <div style="height:520px;background-image:url('uploads/RHOUV%20title%20card.webp');background-size:cover;background-position:center top;position:relative">
+      <div style="position:absolute;left:0;right:0;bottom:0;height:200px;background:linear-gradient(180deg,rgba(214,229,239,0) 0%,#d3e3ee 100%)"></div>
+      <div style="position:absolute;top:28px;left:40px;right:40px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:Cinzel,serif;font-size:13px;letter-spacing:.22em;color:#5a4416;background:rgba(244,247,249,.75);padding:8px 14px;border-radius:3px">Season 1 · Episode 14</div>
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#33404f;background:rgba(244,247,249,.75);padding:8px 12px;border-radius:3px">GET /personas · 6 loaded</div>
+      </div>
+    </div>
+    <div style="flex:1;padding:0 60px 48px;display:flex;flex-direction:column;gap:28px;margin-top:-40px;position:relative">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-family:Cinzel,serif;font-size:13px;letter-spacing:.3em;color:#7a5c1c">Tonight at the table</div>
+          <div style="font-family:Cinzel,serif;font-size:40px;font-weight:600;letter-spacing:.04em;background:linear-gradient(180deg,#e9cf86 0%,#b48a35 55%,#7d5a1c 100%);-webkit-background-clip:text;background-clip:text;color:transparent">The Dinner Party</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="font-size:14px;color:#3d4a5a">Replaying <span style="font-family:ui-monospace,Menlo,monospace">ep_014_seed_42.jsonl</span></div>
+          <button style="font-family:Cinzel,serif;font-size:15px;font-weight:600;letter-spacing:.14em;color:#2a1f08;background:linear-gradient(180deg,#f1dc9b 0%,#c79a3e 100%);border:1px solid #8d6623;border-radius:3px;padding:14px 28px;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.06)">Begin episode</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px">
+        <sc-for list="{{ cast }}" as="c" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.3);border-radius:4px;overflow:hidden;box-shadow:0 14px 30px -20px rgba(40,60,90,.5)">
+            <div style="height:230px;background-image:url('uploads/RHOUV%20title%20card.webp');background-size:{{ c.ps }};background-position:{{ c.pp }};background-repeat:no-repeat;border-bottom:1px solid rgba(160,124,52,.3)"></div>
+            <div style="padding:14px 14px 16px;display:flex;flex-direction:column;gap:4px">
+              <div style="font-family:Cinzel,serif;font-size:19px;font-weight:600;color:#1b2330;letter-spacing:.04em">{{ c.name }}</div>
+              <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#7a5c1c">{{ c.arch }}</div>
+              <div style="font-size:13px;line-height:1.4;color:#3d4a5a;font-style:italic;margin-top:6px;text-wrap:pretty">{{ c.tag }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 1b EPISODE VIEWER ============ -->
+<div id="1b" style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:center;gap:12px;font-family:Cinzel,serif;font-size:22px;color:#1b2330;letter-spacing:.06em"><span style="background:#1b2330;color:#f1dc9b;padding:4px 12px;border-radius:3px;font-size:18px">1b</span>Episode Viewer</div>
+  <div data-screen-label="Episode Viewer" style="width:1440px;min-height:1000px;background:linear-gradient(180deg,#dfeaf2 0%,#c8dbe8 100%);box-shadow:0 30px 80px -30px rgba(30,50,80,.45);display:flex;flex-direction:column">
+    <!-- header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;border-bottom:1px solid rgba(160,124,52,.3)">
+      <div style="display:flex;align-items:center;gap:40px">
+        <div style="font-family:Cinzel,serif;font-weight:700;font-size:17px;line-height:1.1;letter-spacing:.06em;background:linear-gradient(180deg,#e2c272 0%,#a87f2f 60%,#7d5a1c 100%);-webkit-background-clip:text;background-clip:text;color:transparent">The Real Housewives<br>of Uncanny Valley</div>
+        <div style="display:flex;gap:28px;font-family:Cinzel,serif;font-size:14px;letter-spacing:.16em">
+          <span style="color:#1b2330;border-bottom:2px solid #b48a35;padding-bottom:4px">Episode</span>
+          <span style="color:#556173;padding-bottom:4px">Eval</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.14em;color:#a3262b"><span style="width:8px;height:8px;border-radius:50%;background:#c8323a;animation:livepulse 1.4s infinite"></span>LIVE · /stream</div>
+        </sc-if>
+        <sc-if value="{{ isReplay }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#33404f;background:rgba(255,255,255,.6);border:1px solid rgba(160,124,52,.3);border-radius:3px;padding:8px 12px">runs/ep_014_seed_42.jsonl <span style="color:#8a6a22">▾</span></div>
+        </sc-if>
+        <div style="display:flex;background:rgba(255,255,255,.5);border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:3px">
+          <button onClick="{{ setReplay }}" style="border:0;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:7px 14px;border-radius:2px;background:{{ replayBg }};color:{{ replayFg }}">Replay</button>
+          <button onClick="{{ setLive }}" style="border:0;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:7px 14px;border-radius:2px;background:{{ liveBg }};color:{{ liveFg }}">Live</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- course strip -->
+    <div style="display:flex;align-items:center;gap:20px;padding:14px 32px;border-bottom:1px solid rgba(160,124,52,.2)">
+      <div style="font-family:Cinzel,serif;font-size:13px;letter-spacing:.2em;color:#7a5c1c">Course 2 of 4 · Entrée</div>
+      <div style="flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+        <div style="height:3px;background:#b48a35"></div><div style="height:3px;background:linear-gradient(90deg,#b48a35 55%,rgba(160,124,52,.25) 55%)"></div><div style="height:3px;background:rgba(160,124,52,.25)"></div><div style="height:3px;background:rgba(160,124,52,.25)"></div>
+      </div>
+      <div style="font-size:12px;color:#556173">Amuse-bouche · Entrée · Main · Dessert</div>
+    </div>
+
+    <!-- main -->
+    <div style="flex:1;display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:24px;padding:24px 32px">
+      <!-- feed -->
+      <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 22px;border-bottom:1px solid rgba(160,124,52,.22)">
+          <div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.18em;color:#7a5c1c">Episode Feed</div>
+          <div style="display:flex;gap:14px;font-size:12px;color:#556173"><span>Table talk</span><span style="color:#2a43a6">Confessional</span><span style="color:#8a6a22">Twist</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;padding:20px 22px">
+          <sc-for list="{{ feed }}" as="e" hint-placeholder-count="8">
+            <sc-if value="{{ e.isCourse }}">
+              <div style="display:flex;align-items:center;gap:14px;margin:6px 0"><div style="flex:1;height:1px;background:rgba(160,124,52,.4)"></div><div style="font-family:Cinzel,serif;font-size:12px;letter-spacing:.24em;color:#7a5c1c">{{ e.text }}</div><div style="flex:1;height:1px;background:rgba(160,124,52,.4)"></div></div>
+            </sc-if>
+            <sc-if value="{{ e.isTalk }}">
+              <div style="display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:start">
+                <div style="width:40px;height:40px;border-radius:50%;border:1.5px solid #c79a3e;background-image:url('uploads/RHOUV%20title%20card.webp');background-size:{{ e.c.s40 }};background-position:{{ e.c.p40 }};background-repeat:no-repeat"></div>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                  <div style="display:flex;gap:8px;align-items:baseline"><span style="font-weight:700;font-size:14px">{{ e.c.name }}</span><span style="font-size:12px;color:#556173">{{ e.to }}</span></div>
+                  <div style="font-size:15px;line-height:1.45;color:#1b2330;text-wrap:pretty">{{ e.text }}</div>
+                </div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#6b7686">{{ e.t }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ e.isConf }}">
+              <div style="margin-left:52px;display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:12px;align-items:start;background:rgba(42,67,166,.07);border:1px solid rgba(42,67,166,.22);border-radius:4px;padding:12px 14px">
+                <div style="width:32px;height:32px;border-radius:50%;background-image:url('uploads/RHOUV%20title%20card.webp');background-size:{{ e.c.s32 }};background-position:{{ e.c.p32 }};background-repeat:no-repeat;filter:saturate(.7)"></div>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                  <div style="display:flex;gap:8px;align-items:center"><span style="font-size:10px;font-weight:700;letter-spacing:.16em;color:#fff;background:#2a43a6;padding:2px 6px;border-radius:2px">● REC</span><span style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#2a43a6">Confessional · {{ e.c.name }}</span></div>
+                  <div style="font-size:15px;line-height:1.45;font-style:italic;color:#1e2b58;text-wrap:pretty">{{ e.text }}</div>
+                </div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#6b7686">{{ e.t }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ e.isInterrupt }}">
+              <div style="margin-left:52px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;color:#a3262b"><span style="width:14px;height:2px;background:#a3262b"></span>{{ e.text }}</div>
+            </sc-if>
+            <sc-if value="{{ e.isTwist }}">
+              <div style="background:linear-gradient(180deg,#f3e2ac 0%,#d8b363 100%);border:1px solid #8d6623;border-radius:4px;padding:14px 18px;display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center">
+                <div style="font-family:Cinzel,serif;font-size:13px;font-weight:700;letter-spacing:.3em;color:#4a360c">Twist</div>
+                <div style="font-size:15px;font-weight:600;color:#2a1f08;text-wrap:pretty">{{ e.text }}</div>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- right column -->
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(160,124,52,.22)"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.18em;color:#7a5c1c">Brand Leaderboard</div><div style="font-size:12px;color:#556173">brand_delta</div></div>
+          <div style="display:flex;flex-direction:column;padding:8px 10px">
+            <sc-for list="{{ board }}" as="b" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:22px 32px minmax(0,1fr) auto 60px 48px;gap:10px;align-items:center;padding:8px 10px;border-radius:3px;background:{{ b.flash }}">
+                <div style="font-family:Cinzel,serif;font-size:15px;font-weight:700;color:#8a6a22">{{ b.rank }}</div>
+                <div style="width:32px;height:32px;border-radius:50%;background-image:url('uploads/RHOUV%20title%20card.webp');background-size:{{ b.c.s32 }};background-position:{{ b.c.p32 }};background-repeat:no-repeat"></div>
+                <div style="font-weight:600;font-size:14px">{{ b.c.name }}</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:3px 7px;border-radius:2px;background:{{ b.tierBg }};color:{{ b.tierFg }}">{{ b.tier }}</div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:600;text-align:right">{{ b.score }}</div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;text-align:right;color:{{ b.dColor }}">{{ b.delta }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(160,124,52,.22)"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.18em;color:#7a5c1c">Composure</div><div style="font-size:12px;color:#556173">composure_delta</div></div>
+          <div style="display:flex;flex-direction:column;gap:12px;padding:16px 20px">
+            <sc-for list="{{ comp }}" as="m" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:72px minmax(0,1fr) 74px;gap:12px;align-items:center">
+                <div style="font-size:13px;font-weight:600">{{ m.c.name }}</div>
+                <div style="position:relative;height:10px;background:rgba(27,35,48,.08);border-radius:5px">
+                  <div style="position:absolute;left:0;top:0;bottom:0;width:{{ m.w }};background:{{ m.color }};border-radius:5px"></div>
+                  <div style="position:absolute;left:20%;top:-3px;bottom:-3px;width:1px;background:rgba(27,35,48,.3)"></div>
+                  <div style="position:absolute;left:45%;top:-3px;bottom:-3px;width:1px;background:rgba(27,35,48,.3)"></div>
+                  <div style="position:absolute;left:70%;top:-3px;bottom:-3px;width:1px;background:rgba(27,35,48,.3)"></div>
+                </div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:{{ m.color }};text-align:right">{{ m.state }}</div>
+              </div>
+            </sc-for>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#556173;padding-left:84px;padding-right:86px"><span>gone</span><span>slipping</span><span>irritated</span><span>normal</span></div>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(160,124,52,.22)"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.18em;color:#7a5c1c">Alliances</div><div style="display:flex;gap:12px;font-size:12px;color:#556173"><span style="color:#8a6a22">— ally</span><span style="color:#a3262b">- - feud</span></div></div>
+          <div style="position:relative;width:400px;height:250px;margin:10px auto 14px">
+            <svg viewBox="0 0 400 250" width="400" height="250" style="position:absolute;inset:0">
+              <sc-for list="{{ edges }}" as="g" hint-placeholder-count="0">
+                <line x1="{{ g.x1 }}" y1="{{ g.y1 }}" x2="{{ g.x2 }}" y2="{{ g.y2 }}" style="stroke:{{ g.color }};stroke-width:{{ g.w }};stroke-dasharray:{{ g.dash }};stroke-linecap:round"></line>
+              </sc-for>
+            </svg>
+            <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="0">
+              <div style="position:absolute;left:{{ n.l }};top:{{ n.t }};width:64px;display:flex;flex-direction:column;align-items:center;gap:4px">
+                <div style="width:44px;height:44px;border-radius:50%;border:2px solid #c79a3e;background-color:#fff;background-image:url('uploads/RHOUV%20title%20card.webp');background-size:{{ n.c.s44 }};background-position:{{ n.c.p44 }};background-repeat:no-repeat"></div>
+                <div style="font-size:11px;font-weight:600">{{ n.c.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- replay controls -->
+    <sc-if value="{{ isReplay }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:24px;align-items:center;padding:16px 32px;background:rgba(27,35,48,.94);color:#e8edf2">
+        <button onClick="{{ togglePlay }}" style="width:44px;height:44px;border-radius:50%;border:1px solid #8d6623;background:linear-gradient(180deg,#f1dc9b 0%,#c79a3e 100%);color:#2a1f08;font-size:14px;font-weight:700;cursor:pointer">{{ playIcon }}</button>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="position:relative;height:6px;background:rgba(255,255,255,.18);border-radius:3px">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:38%;background:#c79a3e;border-radius:3px"></div>
+            <div style="position:absolute;left:38%;top:-5px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:#f1dc9b;border:2px solid #1b2330"></div>
+            <div style="position:absolute;left:24%;top:10px;width:2px;height:6px;background:#e2c272"></div>
+            <div style="position:absolute;left:52%;top:10px;width:2px;height:6px;background:#e2c272"></div>
+            <div style="position:absolute;left:81%;top:10px;width:2px;height:6px;background:#e2c272"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#a9b4c2;margin-top:6px"><span>event 81 / 212</span><span>twist markers ▲ gold</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a9b4c2">Speed</span>
+          <div style="display:flex;gap:2px;background:rgba(255,255,255,.08);border-radius:3px;padding:3px">
+            <sc-for list="{{ speeds }}" as="s" hint-placeholder-count="4">
+              <button onClick="{{ s.pick }}" style="border:0;cursor:pointer;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:6px 10px;border-radius:2px;background:{{ s.bg }};color:{{ s.fg }}">{{ s.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#a9b4c2">delay {{ delay }}</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 32px;background:rgba(27,35,48,.94);color:#e8edf2;font-size:13px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:50%;background:#e04a52;animation:livepulse 1.4s infinite"></span>Streaming ep_015 from engine.run_episode()</div>
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#a9b4c2">81 events received · spending tokens</div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+<!-- ============ 1c EVAL ============ -->
+<div id="1c" style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:center;gap:12px;font-family:Cinzel,serif;font-size:22px;color:#1b2330;letter-spacing:.06em"><span style="background:#1b2330;color:#f1dc9b;padding:4px 12px;border-radius:3px;font-size:18px">1c</span>Eval</div>
+  <div data-screen-label="Eval" style="width:1440px;min-height:1000px;background:linear-gradient(180deg,#dfeaf2 0%,#c8dbe8 100%);box-shadow:0 30px 80px -30px rgba(30,50,80,.45);display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 32px;border-bottom:1px solid rgba(160,124,52,.3)">
+      <div style="display:flex;align-items:center;gap:40px">
+        <div style="font-family:Cinzel,serif;font-weight:700;font-size:17px;line-height:1.1;letter-spacing:.06em;background:linear-gradient(180deg,#e2c272 0%,#a87f2f 60%,#7d5a1c 100%);-webkit-background-clip:text;background-clip:text;color:transparent">The Real Housewives<br>of Uncanny Valley</div>
+        <div style="display:flex;gap:28px;font-family:Cinzel,serif;font-size:14px;letter-spacing:.16em">
+          <span style="color:#556173;padding-bottom:4px">Episode</span>
+          <span style="color:#1b2330;border-bottom:2px solid #b48a35;padding-bottom:4px">Eval</span>
+        </div>
+      </div>
+      <div style="font-size:13px;color:#3d4a5a">Comparing <strong>48 runs</strong> · seeds 1–24 · Twists off vs frequent</div>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:320px minmax(0,1fr)">
+      <!-- controls -->
+      <div style="border-right:1px solid rgba(160,124,52,.3);padding:24px;display:flex;flex-direction:column;gap:22px;background:rgba(255,255,255,.35)">
+        <div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.18em;color:#7a5c1c">Switches</div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">Cast</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+            <sc-for list="{{ castToggles }}" as="k" hint-placeholder-count="6">
+              <button onClick="{{ k.toggle }}" style="display:flex;align-items:center;gap:6px;padding:4px 6px 4px 4px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid {{ k.border }};background:{{ k.bg }};color:{{ k.fg }};opacity:{{ k.op }}">
+                <span style="width:22px;height:22px;border-radius:50%;flex:none;background-image:url('uploads/RHOUV%20title%20card.webp');background-size:{{ k.c.s22 }};background-position:{{ k.c.p22 }};background-repeat:no-repeat"></span>{{ k.c.name }}
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">Twists</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);background:rgba(255,255,255,.55);border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:3px">
+            <sc-for list="{{ twistOpts }}" as="o" hint-placeholder-count="3">
+              <button onClick="{{ o.pick }}" style="border:0;cursor:pointer;font-size:12px;font-weight:600;padding:7px 0;border-radius:2px;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="2">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">{{ t.label }}</div>
+              <button onClick="{{ t.toggle }}" style="width:40px;height:22px;border-radius:11px;border:0;cursor:pointer;position:relative;background:{{ t.bg }}"><span style="position:absolute;top:3px;left:{{ t.knob }};width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)"></span></button>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between"><div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">Insult weight</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px">1.4×</div></div>
+          <div style="position:relative;height:4px;background:rgba(27,35,48,.12);border-radius:2px;margin:6px 0"><div style="position:absolute;left:0;top:0;bottom:0;width:56%;background:#b48a35;border-radius:2px"></div><div style="position:absolute;left:56%;top:-6px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:#f1dc9b;border:2px solid #8d6623"></div></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">Composure thresholds</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+            <div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:10px;color:#556173">irritated</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#fff;border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:6px 8px">70</div></div>
+            <div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:10px;color:#556173">slipping</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#fff;border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:6px 8px">45</div></div>
+            <div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:10px;color:#556173">gone</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#fff;border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:6px 8px">20</div></div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">Model per personality</div>
+          <sc-for list="{{ models }}" as="md" hint-placeholder-count="6">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px"><span>{{ md.name }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#fff;border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:4px 8px;min-width:120px;display:flex;justify-content:space-between">{{ md.model }}<span style="color:#8a6a22">▾</span></span></div>
+          </sc-for>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">Seeds</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#fff;border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:6px 8px">1–24</div></div>
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#3d4a5a">N per setting</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#fff;border:1px solid rgba(160,124,52,.35);border-radius:3px;padding:6px 8px">24</div></div>
+        </div>
+
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(160,124,52,.3);padding-top:18px">
+          <div style="font-size:12px;color:#3d4a5a;line-height:1.4">Switches filter saved runs. Only <strong>Run batch</strong> spends tokens.</div>
+          <sc-if value="{{ notConfirming }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ askConfirm }}" style="font-family:Cinzel,serif;font-size:15px;font-weight:600;letter-spacing:.14em;color:#2a1f08;background:linear-gradient(180deg,#f1dc9b 0%,#c79a3e 100%);border:1px solid #8d6623;border-radius:3px;padding:13px 0;cursor:pointer">Run batch</button>
+          </sc-if>
+          <sc-if value="{{ confirming }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#1b2330;color:#e8edf2;border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:10px">
+              <div style="font-size:13px;line-height:1.45">48 episodes × ~$0.38 = <strong style="color:#f1dc9b">~$18.24</strong></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <button onClick="{{ cancelConfirm }}" style="border:1px solid rgba(255,255,255,.3);background:transparent;color:#e8edf2;border-radius:3px;padding:9px 0;font-size:12px;font-weight:600;cursor:pointer">Cancel</button>
+                <button onClick="{{ cancelConfirm }}" style="border:1px solid #8d6623;background:linear-gradient(180deg,#f1dc9b 0%,#c79a3e 100%);color:#2a1f08;border-radius:3px;padding:9px 0;font-size:12px;font-weight:700;cursor:pointer">Confirm &amp; run</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <!-- charts -->
+      <div style="padding:24px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-content:start">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;grid-column:1 / -1;font-size:12px;color:#3d4a5a">
+          <sc-for list="{{ cast }}" as="c" hint-placeholder-count="6">
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:3px;background:{{ c.color }}"></span>{{ c.name }}</span>
+          </sc-for>
+          <span style="margin-left:auto;display:flex;gap:14px"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#c9a24e"></span>Twists off</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#2a43a6"></span>Twists frequent</span></span>
+        </div>
+
+        <!-- 1 brand over time -->
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">Brand score over time</div><div style="font-size:12px;color:#556173">Who wins, and when does the lead change?</div></div>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <line x1="10" y1="140" x2="390" y2="140" style="stroke:rgba(27,35,48,.25);stroke-width:1"></line>
+            <sc-for list="{{ ch.lines }}" as="s" hint-placeholder-count="0"><polyline points="{{ s.pts }}" style="fill:none;stroke:{{ s.color }};stroke-width:2;stroke-linejoin:round"></polyline></sc-for>
+          </svg>
+        </div>
+        <!-- 2 final brand bars -->
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">Final brand score by setting</div><div style="font-size:12px;color:#556173">Does a switch change who wins?</div></div>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <line x1="10" y1="132" x2="390" y2="132" style="stroke:rgba(27,35,48,.25);stroke-width:1"></line>
+            <sc-for list="{{ ch.bars }}" as="r" hint-placeholder-count="0"><rect x="{{ r.x }}" y="{{ r.y }}" width="{{ r.w }}" height="{{ r.h }}" style="fill:{{ r.color }}"></rect></sc-for>
+          </svg>
+          <div style="position:relative;height:14px;margin-top:-8px">
+            <sc-for list="{{ ch.barLabels }}" as="l" hint-placeholder-count="0"><span style="position:absolute;left:{{ l.lx }};transform:translateX(-50%);font-size:11px;color:#3d4a5a">{{ l.name }}</span></sc-for>
+          </div>
+        </div>
+        <!-- 3 composure trajectory -->
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">Composure trajectory</div><div style="font-size:12px;color:#556173">When does each personality reach "gone"?</div></div>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <rect x="10" y="10" width="380" height="39" style="fill:rgba(42,67,166,.07)"></rect>
+            <rect x="10" y="49" width="380" height="32.5" style="fill:rgba(180,138,53,.1)"></rect>
+            <rect x="10" y="81.5" width="380" height="32.5" style="fill:rgba(204,110,50,.12)"></rect>
+            <rect x="10" y="114" width="380" height="26" style="fill:rgba(178,50,50,.12)"></rect>
+            <text x="386" y="22" style="font-size:9px;fill:#556173;text-anchor:end">normal</text>
+            <text x="386" y="61" style="font-size:9px;fill:#556173;text-anchor:end">irritated</text>
+            <text x="386" y="94" style="font-size:9px;fill:#556173;text-anchor:end">slipping</text>
+            <text x="386" y="132" style="font-size:9px;fill:#556173;text-anchor:end">gone</text>
+            <sc-for list="{{ ch.comp }}" as="s" hint-placeholder-count="0"><polyline points="{{ s.pts }}" style="fill:none;stroke:{{ s.color }};stroke-width:2;stroke-linejoin:round"></polyline></sc-for>
+          </svg>
+        </div>
+        <!-- 4 time to first breakdown -->
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">Time to first breakdown</div><div style="font-size:12px;color:#556173">Is a result stable or one lucky run?</div></div>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <line x1="10" y1="132" x2="390" y2="132" style="stroke:rgba(27,35,48,.25);stroke-width:1"></line>
+            <sc-for list="{{ ch.hist }}" as="r" hint-placeholder-count="0"><rect x="{{ r.x }}" y="{{ r.y }}" width="{{ r.w }}" height="{{ r.h }}" style="fill:{{ r.color }}"></rect></sc-for>
+            <text x="10" y="146" style="font-size:9px;fill:#3d4a5a">event 0</text>
+            <text x="390" y="146" style="font-size:9px;fill:#3d4a5a;text-anchor:end">event 212</text>
+          </svg>
+        </div>
+        <!-- 5 event mix -->
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;gap:10px"><div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">Event mix per episode</div><div style="font-size:12px;color:#556173">Does a switch change what the episode is made of?</div></div>
+            <div style="display:flex;flex-direction:column;gap:2px;font-size:10px;color:#3d4a5a"><span style="display:flex;gap:5px;align-items:center"><span style="width:8px;height:8px;background:#9fb3c8"></span>talk</span><span style="display:flex;gap:5px;align-items:center"><span style="width:8px;height:8px;background:#2a43a6"></span>confessional</span><span style="display:flex;gap:5px;align-items:center"><span style="width:8px;height:8px;background:#c9a24e"></span>twist</span><span style="display:flex;gap:5px;align-items:center"><span style="width:8px;height:8px;background:#b2393f"></span>interrupt</span></div></div>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <sc-for list="{{ ch.mix }}" as="r" hint-placeholder-count="0"><rect x="{{ r.x }}" y="{{ r.y }}" width="{{ r.w }}" height="{{ r.h }}" style="fill:{{ r.color }}"></rect></sc-for>
+          </svg>
+        </div>
+        <!-- 6 twist impact -->
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">Twist impact</div><div style="font-size:12px;color:#556173">Do twists actually move the story? Brand before ○ vs after ●</div></div>
+          <div style="position:relative">
+          <sc-for list="{{ ch.twist }}" as="d" hint-placeholder-count="0"><span style="position:absolute;right:{{ d.lr }};top:{{ d.lt }};transform:translateY(-50%);font-size:11px;color:#3d4a5a">{{ d.name }}</span></sc-for>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <sc-for list="{{ ch.twist }}" as="d" hint-placeholder-count="0">
+              <line x1="{{ d.x1 }}" y1="{{ d.y }}" x2="{{ d.x2 }}" y2="{{ d.y }}" style="stroke:{{ d.color }};stroke-width:2"></line>
+              <circle cx="{{ d.x1 }}" cy="{{ d.y }}" r="4" style="fill:#fff;stroke:{{ d.color }};stroke-width:2"></circle>
+              <circle cx="{{ d.x2 }}" cy="{{ d.y }}" r="4.5" style="fill:{{ d.color }}"></circle>
+            </sc-for>
+          </svg>
+          </div>
+        </div>
+        <!-- 7 alliance heatmap -->
+        <div style="background:rgba(255,255,255,.62);border:1px solid rgba(160,124,52,.28);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">Alliance edge weights</div><div style="font-size:12px;color:#556173">Do the same alliances show up each time?</div></div>
+          <div style="position:relative">
+          <sc-for list="{{ ch.heatLabels }}" as="l" hint-placeholder-count="0">
+            <span style="position:absolute;right:{{ l.rr }};top:{{ l.rt }};transform:translateY(-50%);font-size:11px;color:#3d4a5a">{{ l.name }}</span>
+            <span style="position:absolute;left:{{ l.cl }};bottom:0;transform:translateX(-50%);font-size:10px;color:#3d4a5a">{{ l.short }}</span>
+          </sc-for>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <sc-for list="{{ ch.heat }}" as="h" hint-placeholder-count="0"><rect x="{{ h.x }}" y="{{ h.y }}" width="34" height="19" rx="2" style="fill:{{ h.color }};fill-opacity:{{ h.o }}"></rect></sc-for>
+            <text x="360" y="40" style="font-size:9px;fill:#556173;text-anchor:middle">48 runs</text>
+          </svg>
+          </div>
+        </div>
+        <!-- 8 in-character -->
+        <div style="background:rgba(255,255,255,.62);border:1px dashed rgba(160,124,52,.5);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="display:flex;flex-direction:column;gap:3px"><div style="font-family:Cinzel,serif;font-size:14px;font-weight:600;letter-spacing:.08em">In-character score</div><div style="font-size:12px;color:#556173">Does a persona stay in voice when composure drops?</div></div><div style="font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7a5c1c;border:1px solid rgba(160,124,52,.5);padding:3px 6px;border-radius:2px">Optional · LLM critic</div></div>
+          <svg viewBox="0 0 400 150" style="width:100%;height:auto;display:block">
+            <line x1="10" y1="132" x2="390" y2="132" style="stroke:rgba(27,35,48,.25);stroke-width:1"></line>
+            <sc-for list="{{ ch.dots }}" as="p" hint-placeholder-count="0"><circle cx="{{ p.x }}" cy="{{ p.y }}" r="3.5" style="fill:{{ p.color }};fill-opacity:.8"></circle></sc-for>
+            <text x="10" y="146" style="font-size:9px;fill:#3d4a5a">composure 0</text>
+            <text x="390" y="146" style="font-size:9px;fill:#3d4a5a;text-anchor:end">100</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;replay&quot;,&quot;live&quot;],&quot;default&quot;:&quot;replay&quot;,&quot;tsType&quot;:&quot;'replay'|'live'&quot;}}">
+const IMG_W = 1424, FACE_Y = 270;
+const CAST = [
+  { name: 'Vivienne', arch: 'The Matriarch', tag: '"I was uncanny before it was a valley."', fx: 178, hue: 75 },
+  { name: 'Cassandra', arch: 'The Social Climber', tag: '"Bless your heart. Both of them."', fx: 394, hue: 20 },
+  { name: 'Bianca', arch: 'The Sweetheart', tag: '"I\'m not fake. I\'m rendered."', fx: 608, hue: 150 },
+  { name: 'Diane', arch: 'The Ice Queen', tag: '"My smile is load-bearing."', fx: 822, hue: 200 },
+  { name: 'Petra', arch: 'The Wildcard', tag: '"I see everything. I have a spare eye."', fx: 1043, hue: 265 },
+  { name: 'Madison', arch: 'The New Girl', tag: '"New money, new face, same table."', fx: 1258, hue: 330 },
+].map(c => {
+  const o = { ...c, color: `oklch(0.58 0.13 ${c.hue})` };
+  [22, 32, 40, 44].forEach(S => {
+    const k = S / 50;
+    o['p' + S] = `${-(c.fx * k - S / 2)}px ${-(FACE_Y * k - S / 2)}px`;
+    o['s' + S] = `${IMG_W * k}px auto`;
+  });
+  const k = 1.3;
+  o.pp = `${-(c.fx * k - 104)}px ${-(222 * k)}px`;
+  o.ps = `${IMG_W * k}px auto`;
+  return o;
+});
+const C = Object.fromEntries(CAST.map(c => [c.name, c]));
+
+const FEED = [
+  { course: 'Course 1 · Amuse-bouche' },
+  { s: 'Vivienne', to: 'to the table', t: '00:12', text: 'I just think it\'s interesting that some people RSVP\'d with a headshot.' },
+  { s: 'Cassandra', to: 'to Vivienne', t: '00:19', text: 'It was a courtesy. Not everyone recognizes you anymore.' },
+  { conf: 'Vivienne', t: '00:21', text: 'Cassandra has had so much work done, her face has a changelog.' },
+  { interrupt: 'Bianca interrupts Diane' },
+  { s: 'Bianca', to: 'to everyone', t: '00:34', text: 'Can we please not do this before the bread?' },
+  { twist: 'The sommelier reveals one guest\'s wine has been non-alcoholic all season.' },
+  { s: 'Petra', to: 'to Diane', t: '00:52', text: 'I knew. I saw it with my third eye. The one in the gift bag.' },
+  { conf: 'Diane', t: '00:55', text: 'I\'m smiling. I\'m always smiling. That is not the same as being fine.' },
+  { course: 'Course 2 · Entrée' },
+  { s: 'Madison', to: 'to the table', t: '01:08', text: 'I\'m just here for the fish course and the friendships.' },
+  { interrupt: 'Cassandra interrupts Madison' },
+  { s: 'Cassandra', to: 'to Madison', t: '01:11', text: 'There is no fish course, Madison. There never was.' },
+].map(e => e.course ? { isCourse: true, text: e.course }
+  : e.conf ? { isConf: true, c: C[e.conf], t: e.t, text: e.text }
+  : e.interrupt ? { isInterrupt: true, text: e.interrupt }
+  : e.twist ? { isTwist: true, text: e.twist }
+  : { isTalk: true, c: C[e.s], to: e.to, t: e.t, text: e.text });
+
+const TIER = s => s >= 800 ? ['Diamond', '#1b2330', '#dfe8f5'] : s >= 700 ? ['Gold', '#f3e2ac', '#4a360c'] : s >= 600 ? ['Silver', '#e2e6ea', '#3d4a5a'] : ['Bronze', '#ecd3bd', '#5c3312'];
+const BOARD = [['Cassandra', 842, 38], ['Vivienne', 811, -24], ['Petra', 774, 0], ['Diane', 702, 6], ['Bianca', 655, 0], ['Madison', 590, -11]].map(([n, s, d], i) => {
+  const [tier, tierBg, tierFg] = TIER(s);
+  return { rank: i + 1, c: C[n], score: s, tier, tierBg, tierFg,
+    delta: d > 0 ? '+' + d : d < 0 ? '−' + Math.abs(d) : '·',
+    dColor: d > 0 ? '#2f7d4f' : d < 0 ? '#b2393f' : '#8b95a3',
+    flash: i === 0 ? 'rgba(47,125,79,.12)' : i === 1 ? 'rgba(178,57,63,.1)' : 'transparent' };
+});
+const STATE = v => v >= 70 ? ['normal', '#2a43a6'] : v >= 45 ? ['irritated', '#9a7428'] : v >= 20 ? ['slipping', '#c0612a'] : ['gone', '#b2393f'];
+const COMP = [['Vivienne', 34], ['Cassandra', 74], ['Bianca', 58], ['Diane', 47], ['Petra', 83], ['Madison', 16]].map(([n, v]) => {
+  const [state, color] = STATE(v); return { c: C[n], w: v + '%', state, color };
+});
+
+const NODES = CAST.map((c, i) => {
+  const a = -Math.PI / 2 + i * Math.PI / 3;
+  return { c, x: 200 + Math.cos(a) * 150, y: 112 + Math.sin(a) * 88 };
+});
+const EDGE_DEF = [[0, 2, 5, 1], [1, 4, 3, 1], [0, 1, 4, 0], [5, 1, 3, 0], [3, 4, 2, 1], [2, 3, 2, 0], [0, 5, 1.5, 1]];
+const EDGES = EDGE_DEF.map(([a, b, w, ally]) => ({ x1: NODES[a].x, y1: NODES[a].y + 2, x2: NODES[b].x, y2: NODES[b].y + 2, w, color: ally ? '#b48a35' : '#b2393f', dash: ally ? 'none' : '5 5' }));
+
+function charts() {
+  let seed = 11; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const lines = CAST.map((c, i) => { let v = 50, pts = []; const bias = [0.6, 1.1, 0.2, 0.4, 0.7, -0.6][i];
+    for (let j = 0; j < 20; j++) { v = Math.max(5, Math.min(95, v + (r() - 0.5) * 12 + bias)); pts.push(`${10 + j * 20},${140 - v * 1.3}`); }
+    return { color: c.color, pts: pts.join(' ') }; });
+  const bars = [], barLabels = [];
+  CAST.forEach((c, i) => { const gx = 14 + i * 63; const a = 40 + r() * 70, b = 40 + r() * 80;
+    bars.push({ x: gx + 8, y: 132 - a, w: 20, h: a, color: '#c9a24e' }, { x: gx + 31, y: 132 - b, w: 20, h: b, color: '#2a43a6' });
+    barLabels.push({ x: gx + 30, lx: ((gx + 30) / 4) + '%', name: c.name }); });
+  const comp = CAST.map((c, i) => { let v = 95 - r() * 10, pts = []; const rate = [5, 2, 3, 4, 1.5, 7][i];
+    for (let j = 0; j < 20; j++) { v = Math.max(2, v - r() * rate); pts.push(`${10 + j * 20},${140 - v * 1.3}`); }
+    return { color: c.color, pts: pts.join(' ') }; });
+  const hv = [1, 3, 6, 9, 12, 10, 7, 5, 4, 2, 2, 1];
+  const hist = hv.map((v, i) => ({ x: 12 + i * 31.5, y: 132 - v * 9.5, w: 27, h: v * 9.5, color: i === 4 ? '#c9a24e' : '#2a43a6' }));
+  const mix = [];
+  for (let e = 0; e < 12; e++) { let y = 140; const vals = [55 + r() * 25, 18 + r() * 12, e >= 6 ? 6 + r() * 6 : 0, 6 + r() * 10]; const tot = vals.reduce((a, b) => a + b);
+    ['#9fb3c8', '#2a43a6', '#c9a24e', '#b2393f'].forEach((col, k) => { const h = vals[k] / tot * 128; y -= h; mix.push({ x: 14 + e * 31.5, y, w: 24, h, color: col }); }); }
+  const twist = CAST.map((c, i) => { const b = 120 + r() * 180, a = b + (r() - 0.4) * 140; const y = 14 + i * 23;
+    return { name: c.name, y, ty: y + 3.5, lr: ((400 - 66) / 4) + '%', lt: (y / 1.5) + '%', x1: b, x2: Math.max(80, Math.min(385, a)), color: c.color }; });
+  const heat = [], heatLabels = [];
+  const W = [[0, .2, .9, .4, .3, .6], [.2, 0, .1, .5, .8, .3], [.9, .1, 0, .6, .2, .4], [.4, .5, .6, 0, .7, .2], [.3, .8, .2, .7, 0, .1], [.6, .3, .4, .2, .1, 0]];
+  CAST.forEach((c, i) => { heatLabels.push({ name: c.name, rr: ((400 - 64) / 4) + '%', rt: ((14 + i * 21 + 9.5) / 1.5) + '%', cl: ((70 + i * 36 + 17) / 4) + '%', short: c.name.slice(0, 3) });
+    CAST.forEach((_, j) => heat.push({ x: 70 + j * 36, y: 14 + i * 21, color: i === j ? '#d9dee4' : '#a87f2f', o: i === j ? 1 : W[i][j] })); });
+  const dots = [];
+  for (let k = 0; k < 48; k++) { const c = CAST[k % 6]; const x = r() * 100; const y = 40 + x * 0.45 + (r() - 0.5) * 30;
+    dots.push({ x: 10 + x * 3.8, y: 132 - y * 1.15, color: c.color }); }
+  return { lines, bars, barLabels, comp, hist, mix, twist, heat, heatLabels, dots };
+}
+const CH = charts();
+const MODELS = ['claude-opus', 'claude-sonnet', 'claude-sonnet', 'claude-haiku', 'claude-opus', 'claude-haiku'];
+
+class Component extends DCLogic {
+  state = { mode: this.props.mode ?? 'replay', playing: true, speed: '1×', confirm: false, off: { Madison: true }, twists: 'frequent', interrupts: true, wine: true };
+  componentDidUpdate(prev) { if (prev.mode !== this.props.mode && this.props.mode) this.setState({ mode: this.props.mode }); }
+  renderVals() {
+    const s = this.state, live = s.mode === 'live';
+    const on = ['#1b2330', '#f1dc9b'], off = ['transparent', '#3d4a5a'];
+    const speeds = ['0.5×', '1×', '2×', '4×'];
+    const delays = { '0.5×': '600ms', '1×': '300ms', '2×': '150ms', '4×': '75ms' };
+    return {
+      cast: CAST, feed: FEED, board: BOARD, comp: COMP, edges: EDGES, ch: CH,
+      nodes: NODES.map(n => ({ ...n, l: (n.x - 32) + 'px', t: (n.y - 22) + 'px' })),
+      isLive: live, isReplay: !live,
+      replayBg: live ? off[0] : on[0], replayFg: live ? off[1] : on[1],
+      liveBg: live ? '#a3262b' : off[0], liveFg: live ? '#fff' : off[1],
+      setReplay: () => this.setState({ mode: 'replay' }), setLive: () => this.setState({ mode: 'live' }),
+      togglePlay: () => this.setState({ playing: !s.playing }), playIcon: s.playing ? '❚❚' : '▶',
+      speeds: speeds.map(l => ({ label: l, bg: s.speed === l ? '#c79a3e' : 'transparent', fg: s.speed === l ? '#1b2330' : '#c9d2dc', pick: () => this.setState({ speed: l }) })),
+      delay: delays[s.speed],
+      castToggles: CAST.map(c => { const o = !s.off[c.name]; return { c, bg: o ? '#fff' : 'transparent', fg: o ? '#1b2330' : '#556173', border: o ? '#c79a3e' : 'rgba(27,35,48,.2)', op: o ? 1 : .6,
+        toggle: () => this.setState({ off: { ...s.off, [c.name]: o } }) }; }),
+      twistOpts: ['off', 'rare', 'frequent'].map(l => ({ label: l, bg: s.twists === l ? on[0] : off[0], fg: s.twists === l ? on[1] : off[1], pick: () => this.setState({ twists: l }) })),
+      toggles: [['Interrupts', 'interrupts'], ['Wine', 'wine']].map(([label, k]) => ({ label, bg: s[k] ? '#b48a35' : 'rgba(27,35,48,.2)', knob: s[k] ? '21px' : '3px', toggle: () => this.setState({ [k]: !s[k] }) })),
+      models: CAST.map((c, i) => ({ name: c.name, model: MODELS[i] })),
+      confirming: s.confirm, notConfirming: !s.confirm,
+      askConfirm: () => this.setState({ confirm: true }), cancelConfirm: () => this.setState({ confirm: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

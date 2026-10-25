@@ -4,8 +4,10 @@
 
 A multi-agent reality show where each personality only knows what she would plausibly know. They confess to the camera, scheme in private, form and break alliances, and build or burn each other's brands. Nobody gets eliminated. Everybody is playing for **brand value**. The simulation runs headless, so I can play hundreds of episodes overnight and measure how the judges, the personas, and the director actually behave.
 
-**Status:** Milestone 1 in progress.
+**Status:** M1 complete · M3 (viewer) in progress.
 **Demo:** _(replay GIF goes here)_
+
+> **Terminology:** an **episode** is one full dinner simulation saved to `runs/` as a JSONL file. "Run" and "episode" are used interchangeably in code; the UI always shows "Episode N".
 
 ---
 
@@ -20,27 +22,37 @@ The headline result I'm building toward: **what does an LLM judge actually rewar
 ## Architecture
 
 ```
-uncanny-valley/
+RHOUV/
 ├── README.md
 ├── engine/
-│   ├── personalities/ # persona cards (YAML: voice, secret, goal, weakness, tagline, side hustle) + per-personality memory
-│   ├── offscreen/     # husbands, exes, assistants, kids: talked about, never seen
-│   ├── events/        # event types the director can pick: dinner, gala, birthday, vow renewal, group trip
-│   ├── phases/        # pre-dinner scheming, the event (table talk, whispers, confessional cutaways), reckoning, reunion
-│   ├── director.py    # seating, turn order, courses, dinner twists, episode length
-│   ├── memory.py      # private notes: grudges, secrets, alliances
-│   ├── brand.py       # brand value ledger: scores, per-moment deltas, history, status tier
-│   ├── receipts.py    # a personality cites a logged event as proof; checked against the log
-│   ├── gossip.py      # secondhand secrets and how each retelling drifts
-│   ├── composure.py   # composure / wine meter that loosens discretion
-│   ├── social.py      # posts, stories, subtweets between events
-│   ├── producer.py    # producer edit + leading confessional questions
-│   └── llm.py         # one model wrapper, swappable per role
-├── api/               # streams episode events over SSE
-├── web/               # React viewer: confessionals, alliance graph, brand value leaderboard
-├── evals/             # bias tests, persona consistency, cost reports
-├── runs/              # saved episode logs (JSON) for replay and eval data
-└── tests/
+│   ├── personalities/   # 6 persona cards (YAML: voice, secret, goal, weakness, tagline)
+│   ├── offscreen/       # 8 off-screen characters (husbands, exes, etc.) — referenced in dialogue
+│   ├── director.py      # turn order, course progression, twist injection, interrupt protocol
+│   ├── brand.py         # brand value ledger: scores, per-moment deltas, leaderboard
+│   ├── composure.py     # composure meter + wine escalation
+│   ├── llm.py           # LiteLLM wrapper (OpenAI-compatible); token usage accumulator
+│   └── run.py           # full dinner loop: table talk → confessionals → reckoning → save
+├── api/
+│   └── server.py        # FastAPI: /runs /personas /events /replay (SSE) /eval/summary
+├── web/                 # React + Vite viewer (M3 — in progress)
+│   ├── src/
+│   │   ├── castConfig.js          # sprite positions, persona colors, composure states
+│   │   ├── hooks/useEpisode.jsx   # central context: playback, derived state, alliance inference
+│   │   ├── components/
+│   │   │   ├── Header.jsx         # nav, episode selector
+│   │   │   ├── EpisodeFeed.jsx    # scrolling event feed
+│   │   │   ├── BrandLeaderboard.jsx
+│   │   │   ├── ComposureMeter.jsx
+│   │   │   ├── ReplayControls.jsx # scrub bar, speed, twist markers
+│   │   │   ├── OpeningCredits.jsx # hero + 6 cast cards
+│   │   │   └── AllianceGraph.jsx  # D3 force graph, ally/feud edges
+│   │   └── pages/
+│   │       ├── EpisodePage.jsx
+│   │       └── EvalPage.jsx       # 8 D3 charts + token cost table
+│   └── public/
+│       └── title-card.webp        # sprite sheet for all 6 avatars
+├── runs/                # saved episode logs (JSONL) — one file per episode
+└── requirements.txt
 ```
 
 ### Design decisions
@@ -70,7 +82,7 @@ _Left to right: Vivienne, Cassandra, Bianca, Diane, Petra, Madison_
 
 Each persona card has: voice, secret, goal, weakness, tagline, and side hustle. Secrets are cross-held — each woman's secret is known to exactly one other.
 
-| # | Name | Archetype | Secret known to |
+| # (title card, L→R) | Name | Archetype | Secret known to |
 |---|---|---|---|
 | 1 | Vivienne Davenport | The Queen Bee | Diane |
 | 2 | Cassandra Cole | The Frenemy | Madison |
@@ -151,23 +163,41 @@ Results and charts go in `evals/results/` and get summarized here.
 
 ## Milestones
 
-- [ ] **1. Core loop** – 4 personalities, one dinner with confessional cutaways, one reckoning with brand value scores, console output (plain Python, direct API calls)
-- [ ] **2. Memory and alliances** – grudges persist, episode 2 builds on episode 1; receipts, gossip, composure meter, off-screen characters; port orchestration to LangGraph and document what it gave and cost
-- [ ] **3. React viewer** – streamed confessionals, live alliance graph, dramatic brand value reveal, opening credits and tagline cards
+- [x] **1. Core loop** – dinner loop runs end to end: table talk, confessional cutaways, interrupt protocol, reckoning with brand value scores, composure/wine escalation, JSONL episode logs. LiteLLM wrapper with per-role model assignment and token tracking.
+- [ ] **2. Memory and alliances** – grudges persist, episode 2 builds on episode 1; receipts, gossip, composure floor per personality, off-screen characters in dialogue
+- [~] **3. React viewer** – in progress. FastAPI server (SSE replay, eval summary), React + Vite scaffold, full episode viewer (feed, leaderboard, composure meters, D3 alliance graph, replay controls, opening credits), eval page with 8 D3 charts and per-episode token cost table.
 - [ ] **4. Evals** – bias tests, drift tracking, cost reports, plus the mechanic-driven evals; producer edit, event types, status tiers, and the Reunion land here too
-- [ ] **5. Ship** – deploy on Azure with a replay-only mode; demo GIF at the top of this README
+- [ ] **5. Ship** – deploy with a replay-only mode; demo GIF at the top of this README
 
 ---
 
-## Quickstart _(target)_
+## Quickstart
 
 ```bash
-git clone <repo-url> && cd uncanny-valley
-pip install -r requirements.txt
-python -m engine.run --personalities 4 --episodes 1
+# Python env (3.12 required — pydantic-core has no 3.15 wheels)
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+# Copy and fill in API keys
+cp .env.example .env
+
+# Fast test run (4 personalities, 2 turns/course)
+.venv/bin/python3.12 -m engine.run --fast --personalities 4
+
+# Full run (all 6, 4 turns/course)
+.venv/bin/python3.12 -m engine.run
 ```
 
-Saved episodes land in `runs/` and can be replayed in the viewer without API calls.
+Episodes save to `runs/` as JSONL and can be replayed in the viewer without further API calls.
+
+**Viewer (M3):**
+```bash
+# Terminal 1 — API server
+.venv/bin/uvicorn api.server:app --reload
+
+# Terminal 2 — Vite dev server
+cd web && npm install && npm run dev
+# → http://localhost:5173
+```
 
 ---
 
@@ -184,7 +214,9 @@ _(Filled in as results come in. Each line should point at an eval and a number, 
 
 ## What failed
 
-_(Fill this in as you go. It's the most valuable section of the README.)_
+- **Models with `"reasoning": true` at low `max_tokens`** — DeepSeek flash and all Claude models on the Magica proxy burn reasoning tokens against the `max_tokens` budget. At 200 tokens they return empty content with `finish_reason='length'`. Fixed by raising to 1024 for personality/confessional calls, 512 for director/judge.
+- **macOS metadata files in `runs/`** — `._episode_*.jsonl` ghost files from Finder broke the `glob("*.jsonl")` listing. Fixed by filtering `f.name.startswith(".")`.
+- **D3 force graph clustering** — initializing all nodes at `(W/2, H/2)` sent charge forces chaotic and triggered 300+ React state updates per simulation. Fixed: init nodes in evenly-spaced circle; batch all state updates to `sim.on('end')` only.
 
 ---
 

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "WebFetch(domain:magica.com)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(command -v:*)",
+      "Bash(.venv/bin/python3.12:*)",
+      "Bash(python3.12:*)",
+      "mcp__claude_ai_Claude_Docs__guide",
+      "mcp__claude_ai_Claude_Docs__batch",
+      "mcp__claude_ai_Claude_Docs__update",
+      "Bash(node:*)",
+      "Bash(npm --version:*)",
+      "Bash(npm install:*)",
+      "Bash(node_modules/.bin/vite build --mode development)",
+      "Bash(\"/Volumes/Crucial X8/code:*)",
+      "Bash(lsof:*)"
+    ]
+  }
+}

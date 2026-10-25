@@ -1,2 +1,5 @@
 ._*
 .env
+*.pyc
+.venv/*
+web/node_modules/*
