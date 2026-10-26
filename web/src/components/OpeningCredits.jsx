@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useEpisode } from '../hooks/useEpisode'
 import { avatarStyle, portraitStyle } from '../castConfig'
 
@@ -68,16 +69,28 @@ function PersonaCard({ persona }) {
 }
 
 export default function OpeningCredits({ onBegin }) {
-  const { personas, file, runs, loading } = useEpisode()
+  const { personas, file, runs, loading, isFilming, startRun } = useEpisode()
+  const [filming, setFilming] = useState(false)
+  const [filmError, setFilmError] = useState(null)
+
+  const handleFilm = async () => {
+    setFilmError(null)
+    setFilming(true)
+    try {
+      await startRun()
+    } catch (e) {
+      setFilmError(e.message ?? 'Failed to start')
+      setFilming(false)
+    }
+  }
 
   return (
     <div
       style={{
         width: '100%',
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg,var(--bg-grad-start) 0%,var(--bg-grad-end) 100%)',
         display: 'flex',
         flexDirection: 'column',
+        flex: 1,
       }}
     >
       {/* Hero image */}
@@ -126,19 +139,7 @@ export default function OpeningCredits({ onBegin }) {
               borderRadius: 3,
             }}
           >
-            Season 1 · Episode 1
-          </div>
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 12,
-              color: '#33404f',
-              background: 'rgba(244,247,249,.75)',
-              padding: '8px 12px',
-              borderRadius: 3,
-            }}
-          >
-            GET /personas · {personas.length} loaded
+            Season 1{runs.length > 0 ? ` · Episode ${runs.indexOf(file) + 1}` : ''}
           </div>
         </div>
       </div>
@@ -191,7 +192,7 @@ export default function OpeningCredits({ onBegin }) {
           </div>
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            {file && (
+            {file && !isFilming && (
               <div style={{ fontSize: 14, color: 'var(--ink-secondary)' }}>
                 Replaying{' '}
                 <span style={{ fontFamily: 'var(--font-mono)' }}>
@@ -199,9 +200,34 @@ export default function OpeningCredits({ onBegin }) {
                 </span>
               </div>
             )}
+            {filmError && (
+              <div style={{ fontSize: 12, color: '#a3262b' }}>{filmError}</div>
+            )}
+            {/* Film a new episode */}
+            <button
+              onClick={handleFilm}
+              disabled={isFilming || filming}
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 14,
+                fontWeight: 600,
+                letterSpacing: '.12em',
+                color: isFilming || filming ? '#8a9db5' : '#3d4a5a',
+                background: 'rgba(255,255,255,.5)',
+                border: '1px solid rgba(160,124,52,.35)',
+                borderRadius: 3,
+                padding: '14px 22px',
+                cursor: isFilming || filming ? 'default' : 'pointer',
+                whiteSpace: 'nowrap',
+                opacity: isFilming || filming ? 0.6 : 1,
+              }}
+            >
+              {isFilming || filming ? 'Filming…' : 'Film Episode'}
+            </button>
+            {/* Watch existing episode */}
             <button
               onClick={onBegin}
-              disabled={loading || !file}
+              disabled={loading || !file || isFilming}
               style={{
                 fontFamily: 'var(--font-display)',
                 fontSize: 15,
@@ -212,12 +238,12 @@ export default function OpeningCredits({ onBegin }) {
                 border: '1px solid var(--gold-border)',
                 borderRadius: 3,
                 padding: '14px 28px',
-                cursor: loading || !file ? 'default' : 'pointer',
+                cursor: loading || !file || isFilming ? 'default' : 'pointer',
                 whiteSpace: 'nowrap',
-                opacity: loading || !file ? 0.6 : 1,
+                opacity: loading || !file || isFilming ? 0.6 : 1,
               }}
             >
-              {loading ? 'Loading…' : 'Begin episode'}
+              {isFilming ? 'Live…' : loading ? 'Loading…' : 'Begin episode'}
             </button>
           </div>
         </div>

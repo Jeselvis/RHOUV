@@ -1,8 +1,111 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEpisode } from '../hooks/useEpisode'
 import { avatarStyle, courseLabel } from '../castConfig'
 
-function TalkRow({ event, wasCutOff }) {
+function KnowledgeField({ label, value, accent }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: '.14em',
+          textTransform: 'uppercase',
+          color: accent ? '#a03030' : '#556173',
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.4 }}>{value || '—'}</div>
+    </div>
+  )
+}
+
+function PersonaKnowledgeCard({ persona, onClose }) {
+  if (!persona) return null
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 72,
+        left: 24,
+        width: 280,
+        background: 'var(--panel-bg)',
+        border: 'var(--panel-border)',
+        borderRadius: 'var(--panel-radius)',
+        boxShadow: '0 8px 40px rgba(20,40,80,.2)',
+        zIndex: 200,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 16px',
+          borderBottom: 'var(--panel-header-border)',
+          gap: 8,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--ink)',
+            }}
+          >
+            {persona.name.split(' ')[0]}
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '.12em',
+              textTransform: 'uppercase',
+              color: 'var(--gold-text)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {persona.persona_type}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 20,
+            lineHeight: 1,
+            color: 'var(--ink-muted)',
+            flexShrink: 0,
+            padding: '0 2px',
+          }}
+        >
+          ×
+        </button>
+      </div>
+      <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <KnowledgeField label="Goal" value={persona.goal} />
+        <KnowledgeField label="Weakness" value={persona.weakness} />
+        <KnowledgeField label="Her secret" value={persona.secret} accent />
+        {persona.known_about && (
+          <KnowledgeField
+            label={`Knows about ${persona.known_about.split(' ')[0]}`}
+            value={persona.known_secret}
+            accent
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TalkRow({ event, wasCutOff, onInfoClick }) {
   return (
     <div
       style={{
@@ -12,16 +115,42 @@ function TalkRow({ event, wasCutOff }) {
         alignItems: 'start',
       }}
     >
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          border: wasCutOff ? '1.5px solid #a3262b' : '1.5px solid var(--gold-fill-2)',
-          flexShrink: 0,
-          ...avatarStyle(event.speaker, 40),
-        }}
-      />
+      <div style={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            border: wasCutOff ? '1.5px solid #a3262b' : '1.5px solid var(--gold-fill-2)',
+            ...avatarStyle(event.speaker, 40),
+          }}
+        />
+        <button
+          onClick={() => onInfoClick(event.speaker)}
+          title={`${event.speaker?.split(' ')[0]}'s knowledge`}
+          style={{
+            position: 'absolute',
+            bottom: -1,
+            right: -1,
+            width: 15,
+            height: 15,
+            borderRadius: '50%',
+            background: 'var(--sapphire)',
+            border: '1.5px solid var(--panel-bg)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 8,
+            fontWeight: 800,
+            color: '#fff',
+            padding: 0,
+            lineHeight: 1,
+          }}
+        >
+          i
+        </button>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
           <span style={{ fontWeight: 700, fontSize: 14 }}>
@@ -277,15 +406,30 @@ function CourseDivider({ event }) {
 }
 
 export default function EpisodeFeed() {
-  const { feed } = useEpisode()
+  const { feed, personas } = useEpisode()
   const bottomRef = useRef(null)
+  const scrollRef = useRef(null)
+  const [activePersonaName, setActivePersonaName] = useState(null)
 
-  // Auto-scroll to bottom on new events
+  const activePersona = personas.find((p) => p.name === activePersonaName) ?? null
+
+  const handleInfoClick = (speakerName) => {
+    setActivePersonaName((cur) => (cur === speakerName ? null : speakerName))
+  }
+
+  // Auto-scroll only when user is already near the bottom (within 80px).
+  // If they've scrolled up to read, don't yank them back down.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = scrollRef.current
+    if (!el) return
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distFromBottom < 80) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [feed.length])
 
   return (
+    <>
     <div
       style={{
         background: 'var(--panel-bg)',
@@ -328,6 +472,7 @@ export default function EpisodeFeed() {
 
       {/* Scrolling feed */}
       <div
+        ref={scrollRef}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -349,7 +494,7 @@ export default function EpisodeFeed() {
               const wasCutOff =
                 next?.feedType === 'interrupt' &&
                 (next.target ?? next.interrupted) === e.speaker
-              return <TalkRow key={i} event={e} wasCutOff={wasCutOff} />
+              return <TalkRow key={i} event={e} wasCutOff={wasCutOff} onInfoClick={handleInfoClick} />
             }
             case 'confessional': return <ConfessionalRow key={i} event={e} />
             case 'interrupt':   return <InterruptRow   key={i} event={e} />
@@ -361,5 +506,13 @@ export default function EpisodeFeed() {
         <div ref={bottomRef} />
       </div>
     </div>
+
+    {activePersona && (
+      <PersonaKnowledgeCard
+        persona={activePersona}
+        onClose={() => setActivePersonaName(null)}
+      />
+    )}
+  </>
   )
 }

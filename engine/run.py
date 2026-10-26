@@ -34,8 +34,8 @@ import yaml
 
 from engine.brand import BrandLedger
 from engine.composure import ComposureLedger
-from engine.director import Director, INTERRUPT_COMPOSURE_HIT
-from engine.llm import call, MODELS, reset_token_totals, get_token_totals
+from engine.director import Director, INTERRUPT_COMPOSURE_HIT, DEFAULT_CONFESSIONAL_EVERY
+from engine.llm import call, MODELS, reset_token_totals, get_token_totals, override_models
 
 
 # ─── Config ───────────────────────────────────────────────────────────────────
@@ -336,11 +336,23 @@ def save_episode(event_log: list[dict]) -> Path:
 
 # ─── Main loop ────────────────────────────────────────────────────────────────
 
-def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[dict]:
+def run_episode(
+    personas: dict[str, dict],
+    turns_per_course: int = 4,
+    confessional_every: int = DEFAULT_CONFESSIONAL_EVERY,
+    fast: bool = False,
+    live_output: Path | None = None,
+) -> list[dict]:
     """Run one full dinner episode and return the complete event log."""
 
     names = list(personas.keys())
     event_log: list[dict] = []
+    _fh = open(live_output, "w", buffering=1) if live_output else None
+
+    def log(event: dict) -> None:
+        event_log.append(event)
+        if _fh is not None:
+            _fh.write(json.dumps(event) + "\n")
 
     # Reset token counter so each episode is measured independently.
     reset_token_totals()
@@ -348,7 +360,7 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
     # Initialise all three ledgers and the director.
     brand     = BrandLedger(names)
     composure = ComposureLedger(names)
-    director  = Director(names, turns_per_course=turns_per_course)
+    director  = Director(names, turns_per_course=turns_per_course, confessional_every=confessional_every)
 
     # Holds an interrupt target if a personality signalled one last turn.
     # The interruptor speaks next before the scheduled round-robin resumes.
@@ -369,13 +381,13 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
             current_course = director.current_course
             wine_events = composure.wine_tick()
             for we in wine_events:
-                event_log.append(we)
+                log(we)
             transition_event = {
                 "type":   "course_transition",
                 "course": current_course,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            event_log.append(transition_event)
+            log(transition_event)
             print_event(transition_event)
 
         # ── Determine next speaker ────────────────────────────────────────────
@@ -431,7 +443,7 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
                     "content": twist,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
-                event_log.append(twist_event)
+                log(twist_event)
                 print_event(twist_event)
                 user_content = f"The host just announced: {twist}\n\n" + user_content
 
@@ -456,7 +468,7 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
             "composure": composure.composure(speaker),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        event_log.append(talk_event)
+        log(talk_event)
         print_event(talk_event)
 
         # ── Handle interrupt ───────────────────────────────────────────────────
@@ -467,14 +479,14 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
                 "target":      speaker,   # the person who just got cut off
                 "timestamp":   datetime.now(timezone.utc).isoformat(),
             }
-            event_log.append(interrupt_event)
+            log(interrupt_event)
             print_event(interrupt_event)
 
             # Being interrupted hurts composure — it's an affront.
             composure_event = composure.delta(
                 speaker, -INTERRUPT_COMPOSURE_HIT, f"interrupted by {interruptor_target}"
             )
-            event_log.append(composure_event)
+            log(composure_event)
 
             # Immediate brand hits — both parties pay a price live.
             # Target: cut off mid-sentence, dominated in public (-4).
@@ -483,13 +495,13 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
             target_brand_event = brand.delta(
                 speaker, -4.0, f"cut off by {interruptor_target}"
             )
-            event_log.append(target_brand_event)
+            log(target_brand_event)
             print_event(target_brand_event)
 
             interruptor_brand_event = brand.delta(
                 interruptor_target, -2.0, f"interrupted {speaker}"
             )
-            event_log.append(interruptor_brand_event)
+            log(interruptor_brand_event)
             print_event(interruptor_brand_event)
 
             # Queue the interruptor to speak next turn.
@@ -518,13 +530,14 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
                 "composure": composure.composure(speaker),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            event_log.append(conf_event)
+            log(conf_event)
             print_event(conf_event)
 
     # ── Reckoning ──────────────────────────────────────────────────────────────
     # Dinner is over. Judge scores each personality and brand values update.
     scoring_events = run_reckoning(event_log, personas, brand)
-    event_log.extend(scoring_events)
+    for e in scoring_events:
+        log(e)
 
     # ── Leaderboard ────────────────────────────────────────────────────────────
     print_leaderboard(brand)
@@ -540,11 +553,16 @@ def run_episode(personas: dict[str, dict], turns_per_course: int = 4) -> list[di
             "completion": totals["completion"],
             "total":      totals["prompt"] + totals["completion"],
         },
-        "turns_per_course": turns_per_course,
-        "cast_size": len(names),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "turns_per_course":   turns_per_course,
+        "confessional_every": confessional_every,
+        "cast_size":          len(names),
+        "fast":               fast,
+        "timestamp":          datetime.now(timezone.utc).isoformat(),
     }
-    event_log.append(meta_event)
+    log(meta_event)
+
+    if _fh is not None:
+        _fh.close()
 
     return event_log
 
@@ -557,10 +575,29 @@ def main():
                         help="Number of episodes to run.")
     parser.add_argument("--fast", action="store_true",
                         help="Reduce turns_per_course to 2 for quick test runs.")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Stream events to this file path as they happen (JSONL).")
+    parser.add_argument("--personality-model", type=str, default=None,
+                        help="Override MODEL_PERSONALITY for this run.")
+    parser.add_argument("--director-model", type=str, default=None,
+                        help="Override MODEL_DIRECTOR for this run.")
+    parser.add_argument("--judge-model", type=str, default=None,
+                        help="Override MODEL_JUDGE for this run.")
     args = parser.parse_args()
+
+    model_overrides = {
+        k: v for k, v in {
+            "personality": args.personality_model,
+            "director": args.director_model,
+            "judge": args.judge_model,
+        }.items() if v
+    }
+    if model_overrides:
+        override_models(model_overrides)
 
     turns_per_course = 2 if args.fast else 4
     personas = load_personas(args.personalities)
+    output_path = Path(args.output) if args.output else None
 
     for i in range(args.episodes):
         if args.episodes > 1:
@@ -568,9 +605,18 @@ def main():
             print(f"  EPISODE {i + 1} of {args.episodes}")
             print(f"{'#'*60}")
 
-        event_log = run_episode(personas, turns_per_course=turns_per_course)
-        path = save_episode(event_log)
-        print(f"Episode log saved → {path}")
+        event_log = run_episode(
+            personas,
+            turns_per_course=turns_per_course,
+            confessional_every=DEFAULT_CONFESSIONAL_EVERY,
+            fast=args.fast,
+            live_output=output_path,
+        )
+        if output_path is None:
+            path = save_episode(event_log)
+            print(f"Episode log saved → {path}")
+        else:
+            print(f"Episode log streamed → {output_path}")
 
 
 if __name__ == "__main__":

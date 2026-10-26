@@ -16,7 +16,7 @@ const logoStyle = {
 }
 
 export default function Header() {
-  const { mode, setMode, file, setFile, runs, loading } = useEpisode()
+  const { isFilming, file, setFile, runs, loading } = useEpisode()
   const location = useLocation()
   const onEvalPage = location.pathname === '/eval'
 
@@ -57,9 +57,9 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Right: live badge / run picker / mode toggle */}
+      {/* Right: live badge / episode picker */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        {mode === 'live' && (
+        {isFilming && (
           <div
             style={{
               display: 'flex',
@@ -81,11 +81,11 @@ export default function Header() {
                 display: 'inline-block',
               }}
             />
-            LIVE · /stream
+            FILMING
           </div>
         )}
 
-        {mode === 'replay' && runs.length > 0 && (
+        {!isFilming && runs.length > 0 && (
           <select
             value={file ?? ''}
             onChange={(e) => setFile(e.target.value)}
@@ -109,50 +109,6 @@ export default function Header() {
             ))}
           </select>
         )}
-
-        {/* Mode toggle */}
-        <div
-          style={{
-            display: 'flex',
-            background: 'rgba(255,255,255,.5)',
-            border: '1px solid rgba(160,124,52,.35)',
-            borderRadius: 3,
-            padding: 3,
-          }}
-        >
-          {[
-            { label: 'Replay', value: 'replay' },
-            { label: 'Live', value: 'live' },
-          ].map(({ label, value }) => {
-            const active = mode === value
-            const isLive = value === 'live'
-            return (
-              <button
-                key={value}
-                onClick={() => setMode(value)}
-                style={{
-                  border: 0,
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  letterSpacing: '.12em',
-                  textTransform: 'uppercase',
-                  padding: '7px 14px',
-                  borderRadius: 2,
-                  background: active
-                    ? isLive
-                      ? '#a3262b'
-                      : '#1b2330'
-                    : 'transparent',
-                  color: active ? (isLive ? '#fff' : '#f1dc9b') : '#3d4a5a',
-                  transition: 'background .15s',
-                }}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
       </div>
     </div>
   )

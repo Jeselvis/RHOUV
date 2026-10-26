@@ -61,6 +61,16 @@ def get_token_totals() -> dict[str, int]:
     return dict(_token_totals)
 
 
+def override_models(overrides: dict[str, str]) -> None:
+    """Update MODELS in place. Called from run.py when CLI model args are passed.
+
+    Only overrides roles present in overrides; leaves others unchanged.
+    """
+    for role, model in overrides.items():
+        if role in MODELS and model:
+            MODELS[role] = model
+
+
 def call(model: str, system: str, messages: list[dict], **kwargs) -> str:
     """Send a request to any LLM provider via LiteLLM. Returns response text.
 

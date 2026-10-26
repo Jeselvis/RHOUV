@@ -45,15 +45,23 @@ export function avatarStyle(name, size) {
   }
 }
 
+const PORTRAIT_FILES = {
+  'Vivienne Davenport': '/images/vivienne.jpg',
+  'Cassandra Cole':     '/images/cassandra.webp',
+  'Bianca Noel':        '/images/bianca.webp',
+  'Diane Wentworth':    '/images/diane.webp',
+  'Petra Voss':         '/images/petra.webp',
+  'Madison Fleur':      '/images/madison.webp',
+}
+
 /** Portrait (230px tall card image). */
 export function portraitStyle(name) {
-  const pos = POSITIONS[name]
-  if (!pos) return {}
-  const k = 1.3
+  const file = PORTRAIT_FILES[name]
+  if (!file) return {}
   return {
-    backgroundImage: "url('/title-card.webp')",
-    backgroundSize: `${IMG_W * k}px auto`,
-    backgroundPosition: `${-(pos.fx * k - 104)}px ${-(222 * k)}px`,
+    backgroundImage: `url('${file}')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center top',
     backgroundRepeat: 'no-repeat',
   }
 }

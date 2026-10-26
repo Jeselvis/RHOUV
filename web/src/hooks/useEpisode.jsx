@@ -109,6 +109,7 @@ function useEpisodeState() {
   const [personas, setPersonas] = useState([])
   const [runs, setRuns] = useState([])
   const [loading, setLoading] = useState(false)
+  const [isFilming, setIsFilming] = useState(false)
 
   const refreshRuns = useCallback(() => {
     fetch('/api/runs')
@@ -156,6 +157,68 @@ function useEpisodeState() {
     }
   }, [file, loadFile])
 
+  // ── Filming: poll /run/status every 3s ────────────────────────────────────
+  // When a run starts, auto-switch to live mode and load the live file.
+  // When it ends, refresh the runs list.
+  const wasFilmingRef = useRef(false)
+  useEffect(() => {
+    const poll = () => {
+      fetch('/api/run/status')
+        .then((r) => r.json())
+        .then(({ running, file: liveFile }) => {
+          setIsFilming(running)
+          if (running) {
+            setMode('live')
+            if (liveFile && liveFile !== prevFileRef.current) {
+              prevFileRef.current = liveFile
+              setFile(liveFile)
+              setCursor(0)
+              setAllEvents([])
+            }
+          } else if (wasFilmingRef.current) {
+            // Just finished — refresh so the completed file appears in the list
+            refreshRuns()
+            setMode('replay')
+          }
+          wasFilmingRef.current = running
+        })
+        .catch(() => {})
+    }
+    poll()
+    const id = setInterval(poll, 3000)
+    return () => clearInterval(id)
+  }, [refreshRuns])
+
+  // ── Live event polling: fetch new events every 2s while filming ───────────
+  // Auto-advances cursor to the latest event so the feed stays current.
+  useEffect(() => {
+    if (!isFilming || !file) return
+    const poll = setInterval(() => {
+      fetch(`/api/events?file=${encodeURIComponent(file)}`)
+        .then((r) => r.json())
+        .then((events) => {
+          if (!Array.isArray(events)) return
+          setAllEvents((prev) => {
+            if (events.length > prev.length) {
+              setCursor(events.length)
+              return events
+            }
+            return prev
+          })
+        })
+        .catch(() => {})
+    }, 2000)
+    return () => clearInterval(poll)
+  }, [isFilming, file])
+
+  // ── Start a new run via the API ────────────────────────────────────────────
+  const startRun = useCallback(async ({ personalities = 6, fast = false } = {}) => {
+    const params = new URLSearchParams({ personalities, fast })
+    const res = await fetch(`/api/run?${params}`, { method: 'POST' })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json() // { status, file }
+  }, [])
+
   // Playback timer
   useEffect(() => {
     if (!playing) return
@@ -185,6 +248,8 @@ function useEpisodeState() {
   return {
     // Mode
     mode, setMode,
+    // Filming
+    isFilming, startRun,
     // File / loading
     file, setFile: loadFile,
     runs, refreshRuns,

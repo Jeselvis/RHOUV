@@ -226,4 +226,4 @@ class Director:
             }
         ]
 
-        return call(MODELS["director"], system, messages, max_tokens=512)
+        return call(MODELS["director"], system, messages, max_tokens=1024)

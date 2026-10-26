@@ -57,6 +57,7 @@ M1 complete. M3 (React viewer) built and running.
 - macOS `._` metadata files in `runs/` broke glob listing
 - D3 force graph: all nodes initialized at center → charge forces chaotic + 300 React state updates per sim tick. Fixed: circle init, state update only on `sim.on('end')`
 - Models with internal reasoning tokens (DeepSeek, Claude via Magica) return empty content at low `max_tokens`. Fixed: 1024 for personality/confessional, 512 for director/judge
+- Twist content truncating to fragment ("Ladies,") mid-sentence. Root cause: same reasoning token budget issue — director was using 512, thinking tokens consumed most of it. Fixed: director `max_tokens` 512 → 1024
 
 **Open eval questions — interrupts (now that live brand hits exist):**
 - Does the -4/-2 penalty accurately reflect the audience's read, or does the judge consistently override it upward (rewarding the interruptor for drama)?

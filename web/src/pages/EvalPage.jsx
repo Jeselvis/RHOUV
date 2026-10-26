@@ -34,88 +34,175 @@ function D3Chart({ draw, data, width = 400, height = 150, style = {} }) {
 // ─── Chart draw functions ──────────────────────────────────────────────────
 
 function drawBrandOverTime(svg, data, W, H) {
+  // Cross-episode view: x = episode number, y = final brand score at reckoning.
+  // One line per persona. Shows how each woman's brand evolves across the season.
   const el = d3.select(svg)
   el.selectAll('*').remove()
   if (!data.length) return
 
-  const PAD = { top: 8, right: 52, bottom: 12, left: 32 }
+  const activeNames = data[0]?.activeNames ?? CAST_ORDER
+  const LEGEND_ROWS = Math.ceil(activeNames.length / 3)
+  const LEGEND_H = LEGEND_ROWS * 14 + 6
+  const PAD = { top: 8, right: 8, bottom: 12 + LEGEND_H, left: 32 }
   const iW = W - PAD.left - PAD.right
   const iH = H - PAD.top - PAD.bottom
 
-  const run = data[0]
-  const allPoints = Object.values(run.brand_over_time).flat()
-  if (!allPoints.length) {
-    el.append('text').attr('x', W / 2).attr('y', H / 2).attr('text-anchor', 'middle')
-      .attr('font-size', 11).attr('fill', '#556173').text('No brand data in this episode')
+  // Build per-name series: [{ep: 0, score: 100}, {ep:1, score:111}, ...]
+  // Start every persona at 100 (episode 0 = before any runs)
+  const series = {}
+  for (const name of activeNames) {
+    series[name] = [{ ep: 0, score: 100 }]
+  }
+  data.forEach((run, ri) => {
+    for (const name of activeNames) {
+      const score = run.final_brand?.[name] ?? null
+      if (score !== null) series[name].push({ ep: ri + 1, score })
+    }
+  })
+
+  // Personas with at least one non-start point
+  const hasData = activeNames.filter((n) => series[n].length > 1)
+  if (!hasData.length) {
+    el.append('text').attr('x', W / 2).attr('y', (H - LEGEND_H) / 2).attr('text-anchor', 'middle')
+      .attr('font-size', 11).attr('fill', '#556173').text('No reckoning scores yet')
     return
   }
 
-  const xMax = d3.max(allPoints, (d) => d.idx) ?? 1
-  const yMin = Math.min(d3.min(allPoints, (d) => d.score) - 5, 95)
-  const yMax = Math.max(d3.max(allPoints, (d) => d.score) + 5, 105)
-  const xScale = d3.scaleLinear([0, xMax], [0, iW])
+  const allScores = hasData.flatMap((n) => series[n].map((d) => d.score))
+  const rawMin = d3.min(allScores)
+  const rawMax = d3.max(allScores)
+  const mid = (rawMin + rawMax) / 2
+  const spread = Math.max(rawMax - rawMin, 20)
+  const yMin = Math.min(rawMin - 4, mid - spread / 2 - 2)
+  const yMax = Math.max(rawMax + 4, mid + spread / 2 + 2)
+
+  const xScale = d3.scaleLinear([0, data.length], [0, iW])
   const yScale = d3.scaleLinear([yMin, yMax], [iH, 0])
 
   const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
 
+  // Y axis ticks
+  for (const t of yScale.ticks(4)) {
+    g.append('line').attr('x1', 0).attr('y1', yScale(t)).attr('x2', iW).attr('y2', yScale(t))
+      .attr('stroke', 'rgba(27,35,48,.08)').attr('stroke-width', 1)
+    g.append('text').attr('x', -4).attr('y', yScale(t) + 4)
+      .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', 'rgba(27,35,48,.4)').text(Math.round(t))
+  }
+
   // Baseline at 100
   g.append('line').attr('x1', 0).attr('y1', yScale(100)).attr('x2', iW).attr('y2', yScale(100))
-    .attr('stroke', 'rgba(27,35,48,.15)').attr('stroke-width', 1).attr('stroke-dasharray', '3 3')
-  g.append('text').attr('x', -4).attr('y', yScale(100) + 4)
-    .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', 'rgba(27,35,48,.4)').text('100')
+    .attr('stroke', 'rgba(27,35,48,.2)').attr('stroke-width', 1).attr('stroke-dasharray', '3 3')
 
-  // Axis
+  // X axis
   g.append('line').attr('x1', 0).attr('y1', iH).attr('x2', iW).attr('y2', iH)
     .attr('stroke', 'rgba(27,35,48,.25)').attr('stroke-width', 1)
 
-  // Lines per persona + end label
-  for (const [name, points] of Object.entries(run.brand_over_time)) {
-    if (!points.length) continue
-    const withStart = points[0]?.idx === 0 ? points : [{ idx: 0, score: 100 }, ...points]
-    const line = d3.line().x((d) => xScale(d.idx)).y((d) => yScale(d.score)).curve(d3.curveMonotoneX)
-    const color = personaColor(name)
-    g.append('path').datum(withStart)
-      .attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2).attr('d', line)
-    // End-of-line label
-    const last = withStart[withStart.length - 1]
-    g.append('text')
-      .attr('x', xScale(last.idx) + 4).attr('y', yScale(last.score) + 4)
-      .attr('font-size', 9).attr('fill', color).attr('font-weight', 600)
-      .text(name.split(' ')[0])
+  // Episode tick labels
+  for (let i = 1; i <= data.length; i++) {
+    g.append('text').attr('x', xScale(i)).attr('y', iH + 10)
+      .attr('text-anchor', 'middle').attr('font-size', 8).attr('fill', 'rgba(27,35,48,.4)').text(i)
   }
+
+  // Lines + terminal dot
+  const line = d3.line().x((d) => xScale(d.ep)).y((d) => yScale(d.score)).curve(d3.curveMonotoneX)
+  for (const name of hasData) {
+    const color = personaColor(name)
+    g.append('path').datum(series[name])
+      .attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2).attr('d', line)
+    const last = series[name][series[name].length - 1]
+    g.append('circle').attr('cx', xScale(last.ep)).attr('cy', yScale(last.score)).attr('r', 3)
+      .attr('fill', color)
+  }
+
+  // Legend — 3-column grid below chart
+  const colW = iW / 3
+  activeNames.forEach((name, i) => {
+    const col = i % 3
+    const row = Math.floor(i / 3)
+    const lx = PAD.left + col * colW
+    const ly = PAD.top + iH + 16 + row * 14
+    el.append('rect').attr('x', lx).attr('y', ly - 4).attr('width', 12).attr('height', 3).attr('fill', personaColor(name))
+    el.append('text').attr('x', lx + 16).attr('y', ly).attr('font-size', 9).attr('fill', '#3d4a5a').text(name.split(' ')[0])
+  })
 }
 
 function drawFinalBrand(svg, data, W, H) {
+  // Grouped bars: one group per episode, one bar per persona.
+  // Shows whether final reckoning scores change across episodes.
   const el = d3.select(svg)
   el.selectAll('*').remove()
   if (!data.length) return
 
-  const PAD = { top: 8, right: 8, bottom: 20, left: 8 }
+  const names = data[0]?.activeNames ?? CAST_ORDER
+  const LEGEND_ROWS = Math.ceil(names.length / 3)
+  const LEGEND_H = LEGEND_ROWS * 14 + 6
+  const PAD = { top: 8, right: 8, bottom: 16 + LEGEND_H, left: 28 }
   const iW = W - PAD.left - PAD.right
   const iH = H - PAD.top - PAD.bottom
 
-  const names = data[0]?.activeNames ?? CAST_ORDER
-  const barW = Math.floor(iW / names.length) - 4
-  const scores = names.map((n) => data[0]?.final_brand?.[n] ?? 100)
-  const yMax = d3.max(scores) * 1.1 || 120
-  const yScale = d3.scaleLinear([0, yMax], [iH, 0])
+  // Only episodes that have at least one scored persona
+  const scoredRuns = data.filter((r) => Object.keys(r.final_brand ?? {}).length > 0)
+  if (!scoredRuns.length) {
+    el.append('text').attr('x', W / 2).attr('y', H / 2).attr('text-anchor', 'middle')
+      .attr('font-size', 11).attr('fill', '#556173').text('No reckoning scores yet')
+    return
+  }
+
+  const allScores = scoredRuns.flatMap((r) => names.map((n) => r.final_brand?.[n] ?? 100))
+  const rawMax = d3.max(allScores) ?? 120
+  const rawMin = d3.min(allScores) ?? 80
+  const yMax = rawMax * 1.05
+  const yMin = Math.max(0, rawMin * 0.92)
+  const yScale = d3.scaleLinear([yMin, yMax], [iH, 0])
 
   const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
+
+  // Y axis ticks
+  for (const t of yScale.ticks(4)) {
+    g.append('line').attr('x1', 0).attr('y1', yScale(t)).attr('x2', iW).attr('y2', yScale(t))
+      .attr('stroke', 'rgba(27,35,48,.07)').attr('stroke-width', 1)
+    g.append('text').attr('x', -4).attr('y', yScale(t) + 4)
+      .attr('text-anchor', 'end').attr('font-size', 8).attr('fill', 'rgba(27,35,48,.4)').text(Math.round(t))
+  }
+
+  // Baseline at 100
+  if (yMin <= 100 && yMax >= 100) {
+    g.append('line').attr('x1', 0).attr('y1', yScale(100)).attr('x2', iW).attr('y2', yScale(100))
+      .attr('stroke', 'rgba(27,35,48,.2)').attr('stroke-width', 1).attr('stroke-dasharray', '3 3')
+  }
 
   g.append('line').attr('x1', 0).attr('y1', iH).attr('x2', iW).attr('y2', iH)
     .attr('stroke', 'rgba(27,35,48,.25)').attr('stroke-width', 1)
 
-  names.forEach((name, i) => {
-    const x = i * (barW + 4) + 4
-    const score = data[0]?.final_brand?.[name] ?? 100
-    const h = iH - yScale(score)
-    g.append('rect')
-      .attr('x', x).attr('y', yScale(score)).attr('width', barW).attr('height', h)
-      .attr('fill', personaColor(name))
+  const groupW = iW / scoredRuns.length
+  const barW = Math.max(2, (groupW - 8) / names.length - 1)
+
+  scoredRuns.forEach((run, ri) => {
+    const groupX = ri * groupW + 4
+    names.forEach((name, ni) => {
+      const score = run.final_brand?.[name]
+      if (score == null) return
+      const x = groupX + ni * (barW + 1)
+      const barH = iH - yScale(score)
+      g.append('rect')
+        .attr('x', x).attr('y', yScale(score)).attr('width', barW).attr('height', barH)
+        .attr('fill', personaColor(name))
+    })
+    // Episode label centred under group
     g.append('text')
-      .attr('x', x + barW / 2).attr('y', iH + 14)
-      .attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', '#3d4a5a')
-      .text(name.split(' ')[0].slice(0, 3))
+      .attr('x', groupX + (groupW - 8) / 2).attr('y', iH + 11)
+      .attr('text-anchor', 'middle').attr('font-size', 8).attr('fill', 'rgba(27,35,48,.5)')
+      .text(`Ep ${data.indexOf(run) + 1}`)
+  })
+
+  // Legend — 3-column grid
+  const colW = iW / 3
+  names.forEach((name, i) => {
+    const col = i % 3; const row = Math.floor(i / 3)
+    const lx = PAD.left + col * colW
+    const ly = PAD.top + iH + 20 + row * 14
+    el.append('rect').attr('x', lx).attr('y', ly - 4).attr('width', 10).attr('height', 10).attr('rx', 1).attr('fill', personaColor(name))
+    el.append('text').attr('x', lx + 14).attr('y', ly + 4).attr('font-size', 9).attr('fill', '#3d4a5a').text(name.split(' ')[0])
   })
 }
 
@@ -253,69 +340,113 @@ function drawEventMix(svg, data, W, H) {
 }
 
 function drawTwistImpact(svg, data, W, H) {
+  // Cross-episode: brand final scores per episode (lines), gold markers on episodes with twists.
+  // Question: do twist episodes produce bigger brand swings?
   const el = d3.select(svg)
   el.selectAll('*').remove()
 
-  if (!data.length || !data[0].twists?.length) {
-    el.append('text').attr('x', W / 2).attr('y', H / 2).attr('text-anchor', 'middle')
-      .attr('font-size', 11).attr('fill', '#556173').text('No twist events in current episodes')
-    return
-  }
+  if (!data.length) return
 
-  // Brand trajectories from run[0] with twist positions overlaid as vertical markers.
-  // Answers: do lines change slope/direction at twist moments?
-  const PAD = { top: 8, right: 52, bottom: 12, left: 32 }
+  const hasTwists = data.some((r) => r.twists?.length)
+  const activeNames = data[0]?.activeNames ?? CAST_ORDER
+
+  const LEGEND_ROWS = Math.ceil(activeNames.length / 3)
+  const LEGEND_H = LEGEND_ROWS * 14 + 6
+  const PAD = { top: 16, right: 8, bottom: 12 + LEGEND_H, left: 32 }
   const iW = W - PAD.left - PAD.right
   const iH = H - PAD.top - PAD.bottom
 
-  const run = data[0]
-  const allPoints = Object.values(run.brand_over_time).flat()
+  // Same series structure as cross-episode brand chart
+  const series = {}
+  for (const name of activeNames) series[name] = [{ ep: 0, score: 100 }]
+  data.forEach((run, ri) => {
+    for (const name of activeNames) {
+      const score = run.final_brand?.[name] ?? null
+      if (score !== null) series[name].push({ ep: ri + 1, score })
+    }
+  })
 
-  if (!allPoints.length) {
+  const hasData = activeNames.filter((n) => series[n].length > 1)
+  if (!hasData.length) {
     el.append('text').attr('x', W / 2).attr('y', H / 2).attr('text-anchor', 'middle')
-      .attr('font-size', 11).attr('fill', '#556173').text('No brand data yet')
+      .attr('font-size', 11).attr('fill', '#556173').text('No reckoning scores yet')
     return
   }
 
-  const xMax = d3.max(allPoints, (d) => d.idx) ?? 1
-  const yMin = Math.min(d3.min(allPoints, (d) => d.score) - 5, 95)
-  const yMax = Math.max(d3.max(allPoints, (d) => d.score) + 5, 105)
-  const xScale = d3.scaleLinear([0, xMax], [0, iW])
+  const allScores = hasData.flatMap((n) => series[n].map((d) => d.score))
+  const rawMin = d3.min(allScores)
+  const rawMax = d3.max(allScores)
+  const mid = (rawMin + rawMax) / 2
+  const spread = Math.max(rawMax - rawMin, 20)
+  const yMin = Math.min(rawMin - 4, mid - spread / 2 - 2)
+  const yMax = Math.max(rawMax + 4, mid + spread / 2 + 2)
+
+  const xScale = d3.scaleLinear([0, data.length], [0, iW])
   const yScale = d3.scaleLinear([yMin, yMax], [iH, 0])
 
   const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
 
-  // Baseline
+  // Gold vertical bands for episodes with twists
+  data.forEach((run, ri) => {
+    if (!run.twists?.length) return
+    const x = xScale(ri + 1)
+    const prevX = xScale(ri)
+    // Shade the band
+    g.append('rect')
+      .attr('x', prevX + 2).attr('y', 0)
+      .attr('width', x - prevX - 4).attr('height', iH)
+      .attr('fill', '#c9a24e').attr('fill-opacity', 0.08)
+    // Top label: twist count
+    g.append('text').attr('x', (prevX + x) / 2).attr('y', -4)
+      .attr('text-anchor', 'middle').attr('font-size', 8).attr('fill', '#a87f2f')
+      .text(`${run.twists.length} twist${run.twists.length > 1 ? 's' : ''}`)
+  })
+
+  // Y axis ticks
+  for (const t of yScale.ticks(4)) {
+    g.append('line').attr('x1', 0).attr('y1', yScale(t)).attr('x2', iW).attr('y2', yScale(t))
+      .attr('stroke', 'rgba(27,35,48,.08)').attr('stroke-width', 1)
+    g.append('text').attr('x', -4).attr('y', yScale(t) + 4)
+      .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', 'rgba(27,35,48,.4)').text(Math.round(t))
+  }
+
+  // Baseline at 100
   g.append('line').attr('x1', 0).attr('y1', yScale(100)).attr('x2', iW).attr('y2', yScale(100))
-    .attr('stroke', 'rgba(27,35,48,.15)').attr('stroke-width', 1).attr('stroke-dasharray', '3 3')
-  g.append('text').attr('x', -4).attr('y', yScale(100) + 4)
-    .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', 'rgba(27,35,48,.4)').text('100')
+    .attr('stroke', 'rgba(27,35,48,.2)').attr('stroke-width', 1).attr('stroke-dasharray', '3 3')
 
-  // Twist markers — gold verticals
-  for (const { idx } of run.twists) {
-    const x = xScale(idx)
-    g.append('line').attr('x1', x).attr('y1', 0).attr('x2', x).attr('y2', iH)
-      .attr('stroke', '#c9a24e').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 3').attr('opacity', 0.8)
-    g.append('text').attr('x', x + 3).attr('y', 9)
-      .attr('font-size', 8).attr('fill', '#a87f2f').text('twist')
-  }
-
-  // Brand lines + end labels
-  for (const [name, points] of Object.entries(run.brand_over_time)) {
-    if (!points.length) continue
-    const withStart = points[0]?.idx === 0 ? points : [{ idx: 0, score: 100 }, ...points]
-    const line = d3.line().x((d) => xScale(d.idx)).y((d) => yScale(d.score)).curve(d3.curveMonotoneX)
-    const color = personaColor(name)
-    g.append('path').datum(withStart)
-      .attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2).attr('d', line)
-    const last = withStart[withStart.length - 1]
-    g.append('text').attr('x', xScale(last.idx) + 4).attr('y', yScale(last.score) + 4)
-      .attr('font-size', 9).attr('fill', color).attr('font-weight', 600).text(name.split(' ')[0])
-  }
-
-  // X axis
+  // X axis + episode tick labels
   g.append('line').attr('x1', 0).attr('y1', iH).attr('x2', iW).attr('y2', iH)
     .attr('stroke', 'rgba(27,35,48,.25)').attr('stroke-width', 1)
+  for (let i = 1; i <= data.length; i++) {
+    g.append('text').attr('x', xScale(i)).attr('y', iH + 10)
+      .attr('text-anchor', 'middle').attr('font-size', 8).attr('fill', 'rgba(27,35,48,.4)').text(i)
+  }
+
+  // Brand lines + terminal dots
+  const line = d3.line().x((d) => xScale(d.ep)).y((d) => yScale(d.score)).curve(d3.curveMonotoneX)
+  for (const name of hasData) {
+    const color = personaColor(name)
+    g.append('path').datum(series[name])
+      .attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2).attr('d', line)
+    const last = series[name][series[name].length - 1]
+    g.append('circle').attr('cx', xScale(last.ep)).attr('cy', yScale(last.score)).attr('r', 3)
+      .attr('fill', color)
+  }
+
+  // Legend
+  const colW = iW / 3
+  activeNames.forEach((name, i) => {
+    const col = i % 3; const row = Math.floor(i / 3)
+    const lx = PAD.left + col * colW
+    const ly = PAD.top + iH + 16 + row * 14
+    el.append('rect').attr('x', lx).attr('y', ly - 4).attr('width', 12).attr('height', 3).attr('fill', personaColor(name))
+    el.append('text').attr('x', lx + 16).attr('y', ly).attr('font-size', 9).attr('fill', '#3d4a5a').text(name.split(' ')[0])
+  })
+
+  if (!hasTwists) {
+    g.append('text').attr('x', iW / 2).attr('y', iH / 2).attr('text-anchor', 'middle')
+      .attr('font-size', 10).attr('fill', '#9aa7b4').attr('font-style', 'italic').text('no twist episodes yet')
+  }
 }
 
 function drawAllianceHeatmap(svg, data, W, H) {
@@ -370,16 +501,74 @@ function drawAllianceHeatmap(svg, data, W, H) {
   })
 }
 
-function drawInCharacterScatter(svg, data, W, H) {
+function drawBehaviorShift(svg, data, W, H) {
+  // Grouped bars per episode: high / mid / low composure tiers, y = avg words per turn.
+  // Tests whether state injection (composure) measurably changes speech length.
   const el = d3.select(svg)
   el.selectAll('*').remove()
-  // Y-axis ("in-character score") requires an LLM critic pass over the transcript.
-  // No fake data — render a clear placeholder until that eval exists.
-  el.append('text').attr('x', W / 2).attr('y', H / 2 - 10).attr('text-anchor', 'middle')
-    .attr('font-size', 12).attr('fill', '#556173').text('Needs LLM critic pass')
-  el.append('text').attr('x', W / 2).attr('y', H / 2 + 8).attr('text-anchor', 'middle')
-    .attr('font-size', 10).attr('fill', '#9aa7b4')
-    .text('X: composure  ·  Y: in-character score (not yet scored)')
+  if (!data.length) return
+
+  const TIERS = [
+    { key: 'high', label: 'High composure', color: '#4a7fa5' },
+    { key: 'mid',  label: 'Mid',            color: '#b48a35' },
+    { key: 'low',  label: 'Low',            color: '#a03030' },
+  ]
+
+  const allAvgs = data.flatMap((run) =>
+    TIERS.map((t) => run.behavior_metrics?.[t.key]?.avg_words ?? 0).filter((v) => v > 0)
+  )
+  if (!allAvgs.length) {
+    el.append('text').attr('x', W / 2).attr('y', H / 2).attr('text-anchor', 'middle')
+      .attr('font-size', 11).attr('fill', '#556173').text('No composure data yet')
+    return
+  }
+
+  const LEGEND_H = 18
+  const PAD = { top: 8, right: 8, bottom: 22 + LEGEND_H, left: 28 }
+  const iW = W - PAD.left - PAD.right
+  const iH = H - PAD.top - PAD.bottom
+
+  const yMax = Math.ceil((d3.max(allAvgs) ?? 60) * 1.15)
+  const yScale = d3.scaleLinear([0, yMax], [iH, 0])
+  const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
+
+  for (const t of yScale.ticks(4)) {
+    g.append('line').attr('x1', 0).attr('y1', yScale(t)).attr('x2', iW).attr('y2', yScale(t))
+      .attr('stroke', 'rgba(27,35,48,.07)').attr('stroke-width', 1)
+    g.append('text').attr('x', -4).attr('y', yScale(t) + 4)
+      .attr('text-anchor', 'end').attr('font-size', 8).attr('fill', 'rgba(27,35,48,.4)').text(Math.round(t))
+  }
+  g.append('line').attr('x1', 0).attr('y1', iH).attr('x2', iW).attr('y2', iH)
+    .attr('stroke', 'rgba(27,35,48,.25)').attr('stroke-width', 1)
+
+  const groupW = iW / data.length
+  const barGap = 2
+  const barW = Math.max(3, (groupW - 8) / TIERS.length - barGap)
+
+  data.forEach((run, ri) => {
+    const groupX = ri * groupW + 4
+    TIERS.forEach((tier, ti) => {
+      const avg = run.behavior_metrics?.[tier.key]?.avg_words ?? 0
+      if (!avg) return
+      const x = groupX + ti * (barW + barGap)
+      const bH = iH - yScale(avg)
+      g.append('rect').attr('x', x).attr('y', yScale(avg)).attr('width', barW).attr('height', bH)
+        .attr('fill', tier.color).attr('fill-opacity', 0.82)
+    })
+    g.append('text').attr('x', groupX + (groupW - 8) / 2).attr('y', iH + 11)
+      .attr('text-anchor', 'middle').attr('font-size', 8).attr('fill', 'rgba(27,35,48,.5)')
+      .text(`Ep ${ri + 1}`)
+  })
+
+  // Legend
+  const legY = PAD.top + iH + 20
+  TIERS.forEach((tier, ti) => {
+    const lx = PAD.left + ti * (iW / 3)
+    el.append('rect').attr('x', lx).attr('y', legY - 4).attr('width', 10).attr('height', 10)
+      .attr('rx', 1).attr('fill', tier.color).attr('fill-opacity', 0.82)
+    el.append('text').attr('x', lx + 14).attr('y', legY + 4)
+      .attr('font-size', 9).attr('fill', '#3d4a5a').text(tier.label)
+  })
 }
 
 // ─── Control components ────────────────────────────────────────────────────
@@ -635,8 +824,64 @@ function CostTable({ data, loading, error, onRefresh }) {
 
 // ─── Main page ─────────────────────────────────────────────────────────────
 
+const ROLE_LABELS = { personality: 'Personality', director: 'Director', judge: 'Judge' }
+
+function ModelPicker({ availableModels, modelConfig, onChange }) {
+  const fmt = (v) => (v == null ? '—' : `$${v.toFixed(2)}`)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#3d4a5a' }}>
+        Models
+      </div>
+      {!availableModels.length && (
+        <div style={{ fontSize: 11, color: 'var(--ink-muted)' }}>
+          Set OPENAI_API_BASE + OPENAI_API_KEY to load models
+        </div>
+      )}
+      {Object.keys(ROLE_LABELS).map((role) => (
+        <div key={role} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ fontSize: 10, color: '#556173', letterSpacing: '.08em' }}>
+            {ROLE_LABELS[role]}
+          </div>
+          <select
+            value={modelConfig[role] ?? ''}
+            onChange={(e) => onChange(role, e.target.value)}
+            style={{
+              fontSize: 11,
+              fontFamily: 'var(--font-mono)',
+              background: '#fff',
+              border: '1px solid rgba(160,124,52,.35)',
+              borderRadius: 3,
+              padding: '5px 6px',
+              color: '#1b2330',
+              width: '100%',
+            }}
+          >
+            {modelConfig[role] && !availableModels.find((m) => m.litellm_id === modelConfig[role]) && (
+              <option value={modelConfig[role]}>{modelConfig[role]}</option>
+            )}
+            {availableModels.map((m) => {
+              const costHint = m.input_per_m != null
+                ? ` — ${fmt(m.input_per_m)}/${fmt(m.output_per_m)}/M`
+                : ''
+              return (
+                <option key={m.litellm_id} value={m.litellm_id}>
+                  {m.id}{costHint}
+                </option>
+              )
+            })}
+          </select>
+        </div>
+      ))}
+      <div style={{ fontSize: 10, color: 'var(--ink-muted)', lineHeight: 1.4 }}>
+        Costs are estimates. Affects next filmed episode.
+      </div>
+    </div>
+  )
+}
+
 export default function EvalPage() {
-  const { runs, personas, mode, refreshRuns } = useEpisode()
+  const { runs, personas, isFilming, startRun, refreshRuns } = useEpisode()
   const [castOn, setCastOn] = useState(
     Object.fromEntries(CAST_ORDER.map((n) => [n, true]))
   )
@@ -648,6 +893,24 @@ export default function EvalPage() {
   const [confirming, setConfirming] = useState(false)
   const [summaryData, setSummaryData] = useState(null) // null = not yet loaded
   const [summaryError, setSummaryError] = useState(false)
+  const [availableModels, setAvailableModels] = useState([])
+  const [modelConfig, setModelConfig] = useState({})
+
+  // Load available models + current model config on mount
+  useEffect(() => {
+    fetch('/api/models').then((r) => r.json()).then((d) => { if (Array.isArray(d)) setAvailableModels(d) }).catch(() => {})
+    fetch('/api/config/models').then((r) => r.json()).then((d) => { if (d) setModelConfig(d) }).catch(() => {})
+  }, [])
+
+  const handleModelChange = (role, value) => {
+    const next = { ...modelConfig, [role]: value }
+    setModelConfig(next)
+    fetch('/api/config/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [role]: value }),
+    }).catch(() => {})
+  }
 
   // Load eval summary on mount / when runs change
   useEffect(() => {
@@ -962,6 +1225,13 @@ export default function EvalPage() {
           </div>
           </div>
 
+          {/* Model picker */}
+          <ModelPicker
+            availableModels={availableModels}
+            modelConfig={modelConfig}
+            onChange={handleModelChange}
+          />
+
           {/* Film episode */}
           <div
             style={{
@@ -979,8 +1249,8 @@ export default function EvalPage() {
             {!confirming ? (
               <button
                 onClick={() => setConfirming(true)}
-                disabled={mode === 'live'}
-                title={mode === 'live' ? 'Episode already filming' : undefined}
+                disabled={isFilming}
+                title={isFilming ? 'Episode already filming' : undefined}
                 style={{
                   fontFamily: 'var(--font-display)',
                   fontSize: 15,
@@ -991,11 +1261,11 @@ export default function EvalPage() {
                   border: '1px solid var(--gold-border)',
                   borderRadius: 3,
                   padding: '13px 0',
-                  cursor: mode === 'live' ? 'default' : 'pointer',
-                  opacity: mode === 'live' ? 0.5 : 1,
+                  cursor: isFilming ? 'default' : 'pointer',
+                  opacity: isFilming ? 0.5 : 1,
                 }}
               >
-                {mode === 'live' ? 'Filming…' : 'Film Episode (new run)'}
+                {isFilming ? 'Filming…' : 'Film Episode (new run)'}
               </button>
             ) : (
               <div
@@ -1030,7 +1300,7 @@ export default function EvalPage() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => setConfirming(false)}
+                    onClick={() => { setConfirming(false); startRun({ fast: false }) }}
                     style={{
                       border: '1px solid var(--gold-border)',
                       background: 'var(--gold-btn-grad)',
@@ -1122,16 +1392,16 @@ export default function EvalPage() {
 
           {/* 1. Brand score over time */}
           <ChartCard
-            title="Brand score over time"
-            question="Who wins, and when does the lead change?"
+            title="Brand score across episodes"
+            question="Who improves episode to episode, and who falls?"
           >
             <D3Chart draw={drawBrandOverTime} data={filteredRuns} />
           </ChartCard>
 
           {/* 2. Final brand score */}
           <ChartCard
-            title="Final brand score by setting"
-            question="Does a switch change who wins?"
+            title="Final brand score by episode"
+            question="Does the winner change across episodes, or does one persona dominate?"
           >
             <D3Chart draw={drawFinalBrand} data={filteredRuns} />
           </ChartCard>
@@ -1178,8 +1448,8 @@ export default function EvalPage() {
 
           {/* 6. Twist impact */}
           <ChartCard
-            title="Twist impact"
-            question="Do twists actually move the story? Brand before ○ vs after ●"
+            title="Twist impact across episodes"
+            question="Do twist episodes produce bigger brand swings? Gold bands = episodes with twists."
           >
             <D3Chart draw={drawTwistImpact} data={filteredRuns} />
           </ChartCard>
@@ -1192,14 +1462,12 @@ export default function EvalPage() {
             <D3Chart draw={drawAllianceHeatmap} data={filteredRuns} height={170} />
           </ChartCard>
 
-          {/* 8. In-character score (optional) */}
+          {/* 8. Behavior shift */}
           <ChartCard
-            title="In-character score"
-            question="Does a persona stay in voice when composure drops?"
-            optional
-            dashed
+            title="Composure → speech length"
+            question="Does low composure produce shorter or longer turns? Bars = high / mid / low composure."
           >
-            <D3Chart draw={drawInCharacterScatter} data={filteredRuns} />
+            <D3Chart draw={drawBehaviorShift} data={filteredRuns} />
           </ChartCard>
         </div>
       </div>
