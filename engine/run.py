@@ -32,10 +32,13 @@ from pathlib import Path
 
 import yaml
 
+from engine.alliances import AllianceLedger, check_alliance_signal
 from engine.brand import BrandLedger
 from engine.composure import ComposureLedger
 from engine.director import Director, INTERRUPT_COMPOSURE_HIT, DEFAULT_CONFESSIONAL_EVERY
 from engine.llm import call, MODELS, reset_token_totals, get_token_totals, override_models
+from engine.memory import load_memory, save_memory, extract_memory, build_memory_injection
+from engine.offscreen import load_offscreen, build_offscreen_context
 
 
 # ─── Config ───────────────────────────────────────────────────────────────────
@@ -113,6 +116,9 @@ def build_personality_system(
     name: str,
     personas: dict[str, dict],
     composure_injection: str | None,
+    offscreen: dict[str, dict] | None = None,
+    alliances: "AllianceLedger | None" = None,
+    memory_injection: str | None = None,
 ) -> str:
     """Build the system prompt for a personality's table-talk turn.
 
@@ -122,6 +128,21 @@ def build_personality_system(
     """
     card = personas[name]
     secrets = build_secret_context(name, personas)
+
+    offscreen_section = ""
+    if offscreen:
+        ctx = build_offscreen_context(name, offscreen)
+        if ctx:
+            offscreen_section = f"\nPEOPLE WHO MAY COME UP (private knowledge):\n{ctx}\n"
+
+    alliance_section = ""
+    if alliances:
+        status = alliances.status_for(name)
+        if status:
+            lines = "\n".join(
+                f"- {other}: {kind}" for other, kind in status.items()
+            )
+            alliance_section = f"\nYOUR CURRENT ALLIANCES (private — do not state explicitly):\n{lines}\n"
 
     prompt = f"""You are {name}, {card['archetype']} on a reality TV show called "The Real Housewives of Uncanny Valley."
 
@@ -136,16 +157,23 @@ YOUR WEAKNESS:
 
 WHAT YOU KNOW (private — do not volunteer unless it serves you):
 {secrets}
-
+{offscreen_section}{alliance_section}
 RULES:
 - Speak only as {name}. Stay in character. 2–4 sentences.
 - You only know what is listed above plus what has been said at the table.
 - Do not reference the show, cameras, or production.
-- If you want to cut someone off mid-conversation, end your response with a new line reading exactly: INTERRUPT: [Name]"""
+- If you want to cut someone off mid-conversation, end your response with a new line reading exactly: INTERRUPT: [Name]
+- To form an alliance: end your response with a new line reading exactly: ALLY: [Name]
+- To declare a feud: end your response with a new line reading exactly: FEUD: [Name]
+- Use at most ONE of ALLY / FEUD / INTERRUPT per turn."""
 
     # Composure injection goes at the top when present — it colours everything else.
     if composure_injection:
         prompt = f"COMPOSURE STATE: {composure_injection}\n\n{prompt}"
+
+    # Memory injection goes before everything — it informs the full character state.
+    if memory_injection:
+        prompt = f"{memory_injection}\n\n{prompt}"
 
     return prompt
 
@@ -357,10 +385,53 @@ def run_episode(
     # Reset token counter so each episode is measured independently.
     reset_token_totals()
 
-    # Initialise all three ledgers and the director.
+    # ── Load cross-episode memory ──────────────────────────────────────────────
+    prior_memory = load_memory()
+
+    # ── Load off-screen characters once ───────────────────────────────────────
+    offscreen = load_offscreen()
+
+    # ── Composure floors from persona cards ───────────────────────────────────
+    floors = {name: card.get("composure_floor", 0.0) for name, card in personas.items()}
+
+    # ── Initialise all ledgers and the director ────────────────────────────────
     brand     = BrandLedger(names)
-    composure = ComposureLedger(names)
+    composure = ComposureLedger(names, floors=floors)
     director  = Director(names, turns_per_course=turns_per_course, confessional_every=confessional_every)
+
+    # ── Alliance ledger — restore from memory if episode 2+ ───────────────────
+    if prior_memory and prior_memory.get("alliances"):
+        alliances = AllianceLedger.from_snapshot(names, prior_memory["alliances"])
+    else:
+        alliances = AllianceLedger(names)
+
+    # ── Log alliance state at episode start ───────────────────────────────────
+    alliance_snapshot = alliances.snapshot()
+    if alliance_snapshot:
+        log({
+            "type":      "alliance_state",
+            "alliances": alliance_snapshot,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+    # ── Log memory_loaded events — one per personality with prior memory ───────
+    if prior_memory:
+        for name in names:
+            pdata = prior_memory.get("personalities", {}).get(name, {})
+            name_alliances = [
+                e for e in prior_memory.get("alliances", [])
+                if e["a"] == name or e["b"] == name
+            ]
+            log({
+                "type":               "memory_loaded",
+                "speaker":            name,
+                "episode_count":      prior_memory.get("episode_count", 1),
+                "brand_end":          pdata.get("brand_end"),
+                "composure_min":      pdata.get("composure_min"),
+                "grudges":            pdata.get("grudges", []),
+                "alliances_restored": name_alliances,
+                "timestamp":          datetime.now(timezone.utc).isoformat(),
+            })
 
     # Holds an interrupt target if a personality signalled one last turn.
     # The interruptor speaks next before the scheduled round-robin resumes.
@@ -412,7 +483,13 @@ def run_episode(
         # Composure modifier is injected at the top when composure is low.
         # At high composure prompt_modifier() returns None and nothing is added.
         composure_injection = composure.prompt_modifier(speaker)
-        system = build_personality_system(speaker, personas, composure_injection)
+        memory_injection = build_memory_injection(speaker, prior_memory)
+        system = build_personality_system(
+            speaker, personas, composure_injection,
+            offscreen=offscreen,
+            alliances=alliances,
+            memory_injection=memory_injection,
+        )
 
         # ── Build the public context ──────────────────────────────────────────
         # This is the shared dinner conversation every personality can hear.
@@ -458,6 +535,14 @@ def run_episode(
         # check_interrupt() strips that marker from the speech and returns
         # the target name (or None if no valid marker was found).
         interruptor_target, clean_speech = director.check_interrupt(raw_speech, names)
+
+        # ── Check for alliance/feud signal (only if no interrupt) ─────────────
+        alliance_kind: str | None = None
+        alliance_target: str | None = None
+        if not interruptor_target:
+            alliance_kind, alliance_target, clean_speech = check_alliance_signal(
+                clean_speech, names
+            )
 
         # ── Log the table_talk event ───────────────────────────────────────────
         talk_event = {
@@ -507,6 +592,11 @@ def run_episode(
             # Queue the interruptor to speak next turn.
             pending_interrupt = interruptor_target
 
+        # ── Alliance / feud signal ────────────────────────────────────────────
+        if alliance_kind and alliance_target and alliance_target != speaker:
+            alliance_event = alliances.set(speaker, alliance_target, alliance_kind)
+            log(alliance_event)
+
         # ── Confessional ───────────────────────────────────────────────────────
         # Fires every N turns on the speaker who just spoke at the table.
         # The personality talks directly to camera — private thoughts only.
@@ -538,6 +628,10 @@ def run_episode(
     scoring_events = run_reckoning(event_log, personas, brand)
     for e in scoring_events:
         log(e)
+
+    # ── Save cross-episode memory ──────────────────────────────────────────────
+    memory = extract_memory(event_log, names, alliances)
+    save_memory(memory)
 
     # ── Leaderboard ────────────────────────────────────────────────────────────
     print_leaderboard(brand)

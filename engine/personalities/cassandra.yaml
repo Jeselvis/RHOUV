@@ -20,6 +20,7 @@ goal: >
 weakness: >
   Cannot tolerate being excluded from information. If a side conversation
   happened without her, she will find out and she will remember.
+composure_floor: 25
 tagline: "I just call it like I see it, darling. Someone has to."
 side_hustle:
   name: Cole & Co.

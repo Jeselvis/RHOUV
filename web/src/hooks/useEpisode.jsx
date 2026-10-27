@@ -176,8 +176,12 @@ function useEpisodeState() {
               setAllEvents([])
             }
           } else if (wasFilmingRef.current) {
-            // Just finished — refresh so the completed file appears in the list
-            refreshRuns()
+            // Just finished — update runs list only, don't reload the file.
+            // File is already fully loaded via live polling; reloading resets cursor.
+            fetch('/api/runs')
+              .then((r) => r.json())
+              .then((list) => { if (Array.isArray(list)) setRuns(list) })
+              .catch(() => {})
             setMode('replay')
           }
           wasFilmingRef.current = running

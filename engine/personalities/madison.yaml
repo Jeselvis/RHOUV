@@ -22,6 +22,7 @@ goal: >
 weakness: >
   Desperate to be liked, specifically by Vivienne, whose approval she claims
   not to need. Overexplains her own intentions when nervous.
+composure_floor: 30
 tagline: "I'm just here to have a good time. Truly."
 side_hustle:
   name: Fleur de Bloom

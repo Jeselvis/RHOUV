@@ -46,12 +46,15 @@ _LEVELS = [
 class ComposureLedger:
     """Tracks composure per personality and global wine level."""
 
-    def __init__(self, names: list[str]):
+    def __init__(self, names: list[str], floors: dict[str, float] | None = None):
         """
         Args:
-            names: All personality names in the episode.
+            names:  All personality names in the episode.
+            floors: Per-personality composure floors. Composure will not drop
+                    below this value. Keyed by full name. Missing = 0.
         """
         self._composure: dict[str, float] = {name: STARTING_COMPOSURE for name in names}
+        self._floors: dict[str, float] = floors or {}
         self._wine_level: float = 0.0
         self._history: list[dict] = []
 
@@ -69,7 +72,11 @@ class ComposureLedger:
         if name not in self._composure:
             raise KeyError(f"Unknown personality: {name!r}")
 
-        self._composure[name] = max(0.0, min(100.0, self._composure[name] + amount))
+        floor = self._floors.get(name, 0.0)
+        unclamped = min(100.0, self._composure[name] + amount)
+        new_value = max(floor, unclamped)
+        floor_hit = amount < 0 and unclamped < floor
+        self._composure[name] = new_value
         event = {
             "type":      "composure_delta",
             "speaker":   name,
@@ -78,6 +85,8 @@ class ComposureLedger:
             "reason":    reason,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        if floor_hit:
+            event["floor_hit"] = True
         self._history.append(event)
         return event
 

@@ -22,6 +22,7 @@ goal: >
 weakness: >
   Cannot let a perceived slight go without a response, which she delivers
   exactly forty-five minutes too late and too specifically to seem casual.
+composure_floor: 15
 tagline: "Darling, I invented this table."
 side_hustle:
   name: Noel x TBD collaboration

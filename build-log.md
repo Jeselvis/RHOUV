@@ -64,3 +64,85 @@ M1 complete. M3 (React viewer) built and running.
 - Does the live brand hit change how personalities behave in subsequent turns — i.e. does losing brand mid-episode cause them to play differently?
 
 ---
+
+## 2026-10-27
+
+MCP analytics server, so RHOUV episode data is queryable conversationally inside Claude Code without running the FastAPI server.
+
+**What:**
+- `api/analytics.py` — extracted shared helpers from `api/server.py`: `load_run_events`, `compute_summary`, `latest_run`. One source of truth for all analytics computation; both REST API and MCP server import from here.
+- `api/server.py` — `/eval/summary` route now calls `compute_summary()` instead of inline logic. No behavior change.
+- `rhouv_mcp/server.py` — MCP server with 8 tools:
+  - `list_episodes` — run files + timestamps
+  - `get_leaderboard(run?)` — ranked brand scores
+  - `get_personality_arc(name, run?)` — brand + composure over time, first breakdown index
+  - `get_alliances(run?)` — weighted mention graph (who talks about whom)
+  - `get_twists(run?)` — all twist events with event index
+  - `get_dialogue(run?, speaker?, course?)` — filtered table_talk + confessionals
+  - `compare_episodes` — final brand scores across all runs
+  - `get_run_meta(run?)` — models used, token cost, config
+- All `run` args default to latest episode if omitted.
+- Registered as `rhouv-analytics` in `~/.claude.json` (project-scoped, stdio transport).
+
+**Why:** Faster eval loop. "Who won the last episode?", "show Vivienne's arc", "compare all runs" → direct answers without opening the browser or writing a script. Refactoring analytics into a shared module also removes duplication that would've grown as MCP tools and REST routes diverged.
+
+**Notes:**
+- Package named `rhouv_mcp/` not `mcp/` — local `mcp/` would shadow the installed SDK.
+- `mcp` 2.x is installed; `FastMCP` was renamed `MCPServer` in that version (`from mcp.server.mcpserver import MCPServer`).
+
+---
+
+## 2026-10-27 (M2)
+
+M2: memory, alliances, composure floors, off-screen characters. Receipts and gossip deferred — those need eval infrastructure first.
+
+**Composure floors:**
+- `composure_floor` added to all 6 personality YAMLs: Petra 35 (volatile by design), Madison 30 (newcomer anxiety), Cassandra 25 (snappy when cornered), Vivienne 20 (polished but can crack), Bianca 15 (desperate and suppressed), Diane 10 (suppresses until she doesn't).
+- `ComposureLedger` accepts `floors` dict. `delta()` clamps to `max(floor, new_value)`. Adds `floor_hit: true` field to `composure_delta` events when the floor clips a drop — no extra event type needed.
+- `run.py` extracts floors from persona cards and passes to ledger. Zero-config: missing `composure_floor` defaults to 0.
+
+**Off-screen characters (`engine/offscreen.py`):**
+- `load_offscreen()` loads all 8 cards from `engine/offscreen/*.yaml`.
+- `build_offscreen_context(name, offscreen)` filters by `associated_with` first name, pulls `known_facts` bullets + `how_described_by_{first}` if present.
+- Result injected into system prompt as `PEOPLE WHO MAY COME UP` section — only appears when non-empty. Vivienne and Diane both get Olivier Mercier context; neither gets the full picture.
+
+**Alliance tracking (`engine/alliances.py`):**
+- Personalities signal `ALLY: [Name]` or `FEUD: [Name]` at end of turn — same pattern as `INTERRUPT:`.
+- `check_alliance_signal()` parses and strips the marker, returns `(kind, target, clean_speech)`. Resolves first name or full name.
+- INTERRUPT takes priority — alliance signal only parsed when no interrupt found. At most one of the three per turn.
+- `AllianceLedger` tracks undirected edges as `frozenset → "ally" | "feud"`. Methods: `set`, `status_for`, `snapshot`, `from_snapshot`.
+- Events logged: `alliance_formed`, `feud_declared`.
+- Active alliances injected into system prompt as `YOUR CURRENT ALLIANCES` section — private, personality told not to state them explicitly.
+
+**Cross-episode memory (`engine/memory.py`):**
+- `extract_memory()` scans event log for final brand scores, composure minimums, who interrupted whom. Pure event scan — no LLM.
+- Saved to `runs/memory.json` after each episode. Human-readable, directly queryable.
+- `build_memory_injection()` formats a `PREVIOUSLY` block per personality: last brand, interruptions received (grudges), active alliances, composure low point.
+- Episode 2+: alliances restored from memory via `AllianceLedger.from_snapshot()`. Memory injection prepended to system prompt before everything else.
+- `memory_loaded` event logged per personality at episode start (if prior memory). `alliance_state` event logged once showing all restored alliances.
+
+**System prompt order** (fully assembled):
+```
+PREVIOUSLY (memory, episode 2+)
+COMPOSURE STATE (if low)
+
+You are {name}...
+VOICE / GOAL / WEAKNESS
+WHAT YOU KNOW (secrets)
+PEOPLE WHO MAY COME UP (offscreen, if relevant)
+YOUR CURRENT ALLIANCES (if any)
+RULES (updated: ALLY / FEUD / INTERRUPT, use at most one per turn)
+```
+
+**MCP additions (`rhouv_mcp/server.py`):**
+- `get_memory_state()` — reads `runs/memory.json` directly.
+- `get_episode_memory_injections(run?)` — returns all `memory_loaded` events from a JSONL.
+- `get_alliances()` updated to include `alliance_formed`/`feud_declared` events alongside mention-graph edges.
+
+**Open eval questions — M2:**
+- Do composure floors produce visibly different behavior arcs? Petra should read more unhinged than Diane across a multi-episode run.
+- Do personalities actually use ALLY/FEUD signals, or do they ignore the rule? If rate is low: is the instruction too buried, or the model too polite to commit?
+- Does memory injection change behavior across episodes — do grudges compound, or does the model treat each episode as fresh regardless?
+- Olivier Mercier contradiction potential: if both Vivienne and Diane mention him in the same episode, do their accounts diverge in ways the audience can catch?
+
+---

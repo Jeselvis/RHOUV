@@ -26,6 +26,7 @@ weakness: >
   Believes transparency is a virtue, which is correct, and applies it
   indiscriminately, which is not. Has blown up alliances that were
   working by telling the truth at the wrong dinner.
+composure_floor: 35
 tagline: "I have no time for nonsense. Let's get a bottle and discuss."
 side_hustle:
   name: Voss & Co.

@@ -22,7 +22,23 @@
       "Bash(\"/Volumes/Crucial X8/code:*)",
       "Bash(lsof:*)",
       "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/pip\" install httpx -q)",
-      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"import httpx; print\\(httpx.__version__\\)\")"
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"import httpx; print\\(httpx.__version__\\)\")",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/pip\" install mcp -q)",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/pip\" install \"mcp[cli]\" -q)",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"from mcp.server.fastmcp import FastMCP; print\\(''''ok''''\\)\")",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"from mcp.server.mcpserver import MCPServer; print\\(''ok''\\)\")",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"import mcp; print\\(mcp.__version__\\)\")",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"from mcp.server.mcpserver import MCPServer; help\\(MCPServer.tool\\)\")",
+      "Bash('/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/pip' show mcp)",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"import inspect; from mcp.server.mcpserver import MCPServer; print\\(inspect.getmembers\\(MCPServer, predicate=inspect.isfunction\\)[:5]\\)\")",
+      "Bash(find:*)",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/pip\" show fastmcp)",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"from mcp.server.fastmcp import FastMCP; print\\(''ok''\\)\")",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \":*)",
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"import sys; sys.path.insert\\(0, ''/Volumes/Crucial X8/code projects/RHOUV''\\); from api.analytics import compute_summary, load_run_events, latest_run; print\\(''analytics ok''\\)\")",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp list:*)",
+      "Bash(claude mcp get:*)"
     ]
   }
 }
