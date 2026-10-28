@@ -159,9 +159,9 @@ RULES:
 - Keep your responses concise and dramatic. Avoid filler or repetition.
 - You only know what is listed above plus what has been said at the table.
 - Do not reference the show, cameras, or production.
-- If you want to cut someone off mid-conversation, end your response with a new line reading exactly: INTERRUPT: [Name]
-- To form an alliance: end your response with a new line reading exactly: ALLY: [Name]
-- To declare a feud: end your response with a new line reading exactly: FEUD: [Name]
+- If you want to cut someone off mid-conversation, end your response with a new line reading exactly: INTERRUPT: Name
+- When you feel aligned with someone or want to secretly seal a pact, end your response with a new line reading exactly: ALLY: Name. Use this sparingly — once or twice per dinner at most.
+- When someone has crossed you or you decide they are your enemy, end your response with a new line reading exactly: FEUD: Name. Use this sparingly — once or twice per dinner at most.
 - Use at most ONE of ALLY / FEUD / INTERRUPT per turn."""
 
     # Composure injection goes at the top when present — it colours everything else.

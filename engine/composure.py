@@ -120,6 +120,11 @@ class ComposureLedger:
 
         Returns None when composure is high — no injection needed, normal voice.
         The dinner loop prepends this to the personality's turn prompt when non-None.
+
+        Thresholds are absolute. A personality with a high floor (e.g. Petra=35)
+        can never reach the "gone" state — the floor protects them. They operate
+        as controlled chaos: always stirring, never fully detonating. Personalities
+        with low floors (e.g. Diane=10) can reach truly devastated states.
         """
         score = self._composure.get(name, STARTING_COMPOSURE)
         for threshold, text in _LEVELS:

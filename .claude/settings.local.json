@@ -38,7 +38,8 @@
       "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/python3.12\" -c \"import sys; sys.path.insert\\(0, ''/Volumes/Crucial X8/code projects/RHOUV''\\); from api.analytics import compute_summary, load_run_events, latest_run; print\\(''analytics ok''\\)\")",
       "Bash(claude mcp add:*)",
       "Bash(claude mcp list:*)",
-      "Bash(claude mcp get:*)"
+      "Bash(claude mcp get:*)",
+      "WebFetch(domain:inference.magica.com)"
     ]
   }
 }

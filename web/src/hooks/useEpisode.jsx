@@ -34,6 +34,13 @@ function inferAlliances(events) {
     if (e.type === 'interrupt' && e.interruptor && e.target) {
       addEdge(e.interruptor, e.target, 2, 'feud')
     }
+    // Explicit alliance/feud declarations from ALLY: / FEUD: markers
+    if (e.type === 'alliance_formed' && e.a && e.b) {
+      addEdge(e.a, e.b, 3, 'ally')
+    }
+    if (e.type === 'feud_declared' && e.a && e.b) {
+      addEdge(e.a, e.b, 3, 'feud')
+    }
   }
 
   return Object.entries(map)

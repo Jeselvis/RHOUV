@@ -211,95 +211,177 @@ function drawComposureTrajectory(svg, data, W, H) {
   el.selectAll('*').remove()
   if (!data.length) return
 
-  const PAD = { top: 8, right: 50, bottom: 8, left: 8 }
+  const names = data[0]?.activeNames ?? CAST_ORDER
+  const PAD = { top: 8, right: 52, bottom: 22, left: 8 }
   const iW = W - PAD.left - PAD.right
   const iH = H - PAD.top - PAD.bottom
 
-  const run = data[0]
-  // Seed with start points so the scale always includes 100 even if no drops yet
-  const allPoints = Object.values(run.composure_over_time).flat()
-  const yMin = allPoints.length ? Math.max(0, (d3.min(allPoints, (d) => d.value) ?? 100) - 8) : 0
-  const yScale = d3.scaleLinear([yMin, 100], [iH, 0])
-
   const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
 
-  // Threshold bands — only draw bands that fall within the visible y range
+  // Threshold bands
   const bands = [
-    { y1: 70, y2: 100, color: 'rgba(42,67,166,.07)',  label: 'normal' },
-    { y1: 45, y2: 70,  color: 'rgba(180,138,53,.1)',  label: 'irritated' },
-    { y1: 20, y2: 45,  color: 'rgba(204,110,50,.12)', label: 'slipping' },
-    { y1: 0,  y2: 20,  color: 'rgba(178,50,50,.12)',  label: 'gone' },
+    { y1: 70, y2: 100, color: 'rgba(42,67,166,.06)',  label: 'normal' },
+    { y1: 45, y2: 70,  color: 'rgba(180,138,53,.09)', label: 'irritated' },
+    { y1: 20, y2: 45,  color: 'rgba(204,110,50,.11)', label: 'slipping' },
+    { y1: 0,  y2: 20,  color: 'rgba(178,50,50,.11)',  label: 'gone' },
   ]
+  const yScale = d3.scaleLinear([0, 100], [iH, 0])
   for (const b of bands) {
-    const visY1 = Math.max(b.y1, yMin)
-    const visY2 = Math.min(b.y2, 100)
-    if (visY1 >= visY2) continue
     g.append('rect')
-      .attr('x', 0).attr('y', yScale(visY2))
-      .attr('width', iW).attr('height', yScale(visY1) - yScale(visY2))
+      .attr('x', 0).attr('y', yScale(b.y2))
+      .attr('width', iW).attr('height', yScale(b.y1) - yScale(b.y2))
       .attr('fill', b.color)
-    // Only label if band has enough height to be legible
-    if (yScale(visY1) - yScale(visY2) > 12) {
-      g.append('text')
-        .attr('x', iW + 4).attr('y', yScale((visY1 + visY2) / 2) + 4)
-        .attr('font-size', 9).attr('fill', '#556173').text(b.label)
+    g.append('line')
+      .attr('x1', 0).attr('x2', iW)
+      .attr('y1', yScale(b.y1)).attr('y2', yScale(b.y1))
+      .attr('stroke', 'rgba(61,74,90,.15)').attr('stroke-width', 1)
+    g.append('text')
+      .attr('x', iW + 4).attr('y', yScale((b.y1 + b.y2) / 2) + 4)
+      .attr('font-size', 9).attr('fill', '#778899').text(b.label)
+  }
+
+  // Per-personality band: spread dots horizontally within each column
+  const xBand = d3.scaleBand(names, [0, iW]).padding(0.25)
+  const DOT_R = 4
+  const runColorScale = d3.scaleSequential(d3.interpolateBlues)
+    .domain([-0.3, data.length - 1])
+
+  // Per-personality: connect dots across runs with a faint line showing trend
+  for (const name of names) {
+    const pts = data.map((run, ri) => {
+      const series = run.composure_over_time?.[name] ?? []
+      const minVal = series.length ? d3.min(series, (d) => d.value) : 100
+      return { ri, minVal }
+    })
+    if (pts.length < 2) continue
+    const cx = xBand(name) + xBand.bandwidth() / 2
+    const line = d3.line()
+      .x(() => cx)
+      .y((d) => yScale(d.minVal))
+      .curve(d3.curveBumpX)
+    g.append('path').datum(pts)
+      .attr('fill', 'none')
+      .attr('stroke', personaColor(name))
+      .attr('stroke-width', 1)
+      .attr('opacity', 0.25)
+      .attr('d', line)
+  }
+
+  // Dots — one per (run × personality), jittered within the band
+  const jitterSeed = (ri, name) => {
+    // deterministic jitter so dots don't jump on re-render
+    const hash = (ri * 31 + name.charCodeAt(0)) % 7
+    return (hash / 6 - 0.5) * xBand.bandwidth() * 0.55
+  }
+
+  for (const name of names) {
+    const bx = xBand(name) + xBand.bandwidth() / 2
+    for (let ri = 0; ri < data.length; ri++) {
+      const run = data[ri]
+      const series = run.composure_over_time?.[name] ?? []
+      const minVal = series.length ? d3.min(series, (d) => d.value) : 100
+      const cx = bx + jitterSeed(ri, name)
+      const cy = yScale(minVal)
+      g.append('circle')
+        .attr('cx', cx).attr('cy', cy).attr('r', DOT_R)
+        .attr('fill', data.length === 1 ? personaColor(name) : runColorScale(ri))
+        .attr('stroke', personaColor(name))
+        .attr('stroke-width', 1.5)
+        .attr('opacity', 0.85)
     }
   }
 
-  if (!allPoints.length) return
-  const xMax = d3.max(allPoints, (d) => d.idx) ?? 1
-  const xScale = d3.scaleLinear([0, xMax], [0, iW])
-
-  for (const [name, points] of Object.entries(run.composure_over_time)) {
-    if (!points.length) continue
-    const withStart = points[0]?.idx === 0 ? points : [{ idx: 0, value: 100 }, ...points]
-    const line = d3.line().x((d) => xScale(d.idx)).y((d) => yScale(d.value)).curve(d3.curveMonotoneX)
-    g.append('path').datum(withStart)
-      .attr('fill', 'none')
-      .attr('stroke', personaColor(name))
-      .attr('stroke-width', 2)
-      .attr('d', line)
+  // X-axis: personality first names
+  for (const name of names) {
+    g.append('text')
+      .attr('x', xBand(name) + xBand.bandwidth() / 2)
+      .attr('y', iH + 14)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 10)
+      .attr('fill', personaColor(name))
+      .attr('font-weight', 600)
+      .text(name.split(' ')[0])
   }
 }
 
 function drawBreakdownHistogram(svg, data, W, H) {
+  // Per-personality dot plot: X = how far into the episode before first slip (<45 composure).
+  // Dot right edge = never slipped. All runs overlaid per personality row.
   const el = d3.select(svg)
   el.selectAll('*').remove()
   if (!data.length) return
 
-  const PAD = { top: 8, right: 8, bottom: 20, left: 8 }
+  const names = data[0]?.activeNames ?? CAST_ORDER
+  const maxTotal = d3.max(data, (r) => r.total) ?? 1
+
+  const PAD = { top: 4, right: 46, bottom: 18, left: 46 }
   const iW = W - PAD.left - PAD.right
   const iH = H - PAD.top - PAD.bottom
 
   const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
-  g.append('line').attr('x1', 0).attr('y1', iH).attr('x2', iW).attr('y2', iH)
-    .attr('stroke', 'rgba(27,35,48,.25)').attr('stroke-width', 1)
 
-  const total = data[0]?.total ?? 1
-  const breakdowns = Object.entries(data[0]?.first_breakdown ?? {})
-    .filter(([, idx]) => idx !== null)
-    .map(([name, idx]) => ({ name, idx }))
+  const xScale = d3.scaleLinear([0, maxTotal], [0, iW])
+  const yBand = d3.scaleBand(names, [0, iH]).padding(0.3)
+  const DOT_R = 4
 
-  if (!breakdowns.length) {
-    g.append('text').attr('x', iW / 2).attr('y', iH / 2).attr('text-anchor', 'middle')
-      .attr('font-size', 11).attr('fill', '#556173').text('No breakdowns in this run')
-    return
+  const runColorScale = d3.scaleSequential(d3.interpolateBlues).domain([-0.3, data.length - 1])
+
+  // Baseline and label per personality
+  for (const name of names) {
+    const cy = yBand(name) + yBand.bandwidth() / 2
+    g.append('line')
+      .attr('x1', 0).attr('x2', iW)
+      .attr('y1', cy).attr('y2', cy)
+      .attr('stroke', 'rgba(61,74,90,.1)').attr('stroke-width', 1)
+    g.append('text')
+      .attr('x', -4).attr('y', cy + 4)
+      .attr('text-anchor', 'end').attr('font-size', 10)
+      .attr('fill', personaColor(name)).attr('font-weight', 600)
+      .text(name.split(' ')[0])
   }
 
-  const xScale = d3.scaleLinear([0, total], [0, iW])
-  const barH = iH / (breakdowns.length + 1)
+  // X-axis labels
+  g.append('text').attr('x', 0).attr('y', iH + 13)
+    .attr('font-size', 9).attr('fill', '#778899').text('early')
+  g.append('text').attr('x', iW / 2).attr('y', iH + 13)
+    .attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', '#778899').text('→ event index')
+  g.append('text').attr('x', iW).attr('y', iH + 13)
+    .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', '#778899').text('never')
 
-  breakdowns.forEach(({ name, idx }, i) => {
-    const y = i * (barH + 2) + 2
-    g.append('rect').attr('x', 0).attr('y', y)
-      .attr('width', xScale(idx)).attr('height', barH - 2)
-      .attr('fill', personaColor(name))
-    g.append('text').attr('x', xScale(idx) + 3).attr('y', y + barH / 2 + 4)
-      .attr('font-size', 9).attr('fill', '#3d4a5a').text(name.split(' ')[0])
-  })
+  // "never" zone: faint band at the right edge
+  g.append('rect')
+    .attr('x', iW - 2).attr('y', 0).attr('width', 2).attr('height', iH)
+    .attr('fill', 'rgba(61,74,90,.12)')
 
-  g.append('text').attr('x', 0).attr('y', iH + 14).attr('font-size', 9).attr('fill', '#3d4a5a').text('event 0')
-  g.append('text').attr('x', iW).attr('y', iH + 14).attr('text-anchor', 'end').attr('font-size', 9).attr('fill', '#3d4a5a').text(`event ${total}`)
+  // Dots per run
+  let anyData = false
+  for (let ri = 0; ri < data.length; ri++) {
+    const run = data[ri]
+    for (const name of names) {
+      const idx = run.first_breakdown?.[name]
+      const cx = idx != null ? xScale(idx) : iW  // null → right edge (never)
+      const cy = yBand(name) + yBand.bandwidth() / 2
+      const jitter = ((ri * 17 + name.charCodeAt(0)) % 5 - 2) * 1.8
+      g.append('circle')
+        .attr('cx', cx).attr('cy', cy + jitter).attr('r', DOT_R)
+        .attr('fill', idx != null
+          ? (data.length === 1 ? personaColor(name) : runColorScale(ri))
+          : 'rgba(61,74,90,.18)')
+        .attr('stroke', idx != null ? personaColor(name) : 'rgba(61,74,90,.3)')
+        .attr('stroke-width', 1.5)
+      if (idx != null) anyData = true
+    }
+  }
+
+  // Right-edge label
+  g.append('text').attr('x', iW + 4).attr('y', iH / 2 + 4)
+    .attr('font-size', 9).attr('fill', '#778899').text('never')
+
+  if (!anyData) {
+    g.append('text').attr('x', iW / 2).attr('y', iH / 2)
+      .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', '#556173')
+      .text('No slips yet — composure held all night')
+  }
 }
 
 function drawEventMix(svg, data, W, H) {
@@ -463,7 +545,7 @@ function drawAllianceHeatmap(svg, data, W, H) {
 
   const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
 
-  // Aggregate weights across all runs
+  // Aggregate mention weights across all runs
   const weights = {}
   for (const run of data) {
     for (const [key, w] of Object.entries(run.alliance_weights ?? {})) {
@@ -471,6 +553,15 @@ function drawAllianceHeatmap(svg, data, W, H) {
     }
   }
   const maxW = d3.max(Object.values(weights)) || 1
+
+  // Cumulative explicit relationship state (last write wins per pair)
+  const explicitEdges = {}
+  for (const run of data) {
+    for (const ev of run.alliance_events ?? []) {
+      const key = [ev.a, ev.b].sort().join('|')
+      explicitEdges[key] = ev.kind
+    }
+  }
 
   names.forEach((rowName, ri) => {
     // Row label
@@ -481,13 +572,25 @@ function drawAllianceHeatmap(svg, data, W, H) {
 
     names.forEach((colName, ci) => {
       const key = [rowName, colName].sort().join('|')
-      const opacity = ri === ci ? 1 : (weights[key] ?? 0) / maxW
+      const w = weights[key] ?? 0
+      const kind = explicitEdges[key]
+      const baseOpacity = Math.max(0.08, w / maxW)
+      let fill, opacity
+      if (ri === ci) {
+        fill = '#d9dee4'; opacity = 1
+      } else if (kind === 'ally') {
+        fill = '#a87f2f'; opacity = baseOpacity
+      } else if (kind === 'feud') {
+        fill = '#b2393f'; opacity = baseOpacity
+      } else {
+        fill = '#8899aa'; opacity = w > 0 ? Math.max(0.06, baseOpacity * 0.5) : 0
+      }
       g.append('rect')
         .attr('x', ci * cellW).attr('y', ri * cellH)
         .attr('width', cellW - 2).attr('height', cellH - 2)
         .attr('rx', 2)
-        .attr('fill', ri === ci ? '#d9dee4' : '#a87f2f')
-        .attr('fill-opacity', ri === ci ? 1 : opacity)
+        .attr('fill', fill)
+        .attr('fill-opacity', opacity)
     })
   })
 
@@ -679,7 +782,7 @@ function ChartCard({ title, question, children, optional = false, dashed = false
 
 // ─── Token cost table ──────────────────────────────────────────────────────
 
-function CostTable({ data, loading, error, onRefresh }) {
+function CostTable({ data, loading, error, onRefresh, isFilming, liveFile }) {
   const [inputPrice, setInputPrice] = useState(0.25)   // $/M tokens
   const [outputPrice, setOutputPrice] = useState(1.25) // $/M tokens
 
@@ -788,38 +891,43 @@ function CostTable({ data, loading, error, onRefresh }) {
               const model = meta?.models?.personality ?? '—'
               const shortModel = model.replace(/^openai\/~anthropic\//, '').replace(/^openai\//, '')
               const castSize = meta?.cast_size ?? '—'
+              const live = isFilming && run.file === liveFile && !meta
+              const dash = live
+                ? <span style={{ fontStyle: 'italic', color: 'var(--gold-text)', opacity: 0.7 }}>filming…</span>
+                : '—'
               return (
                 <tr
                   key={run.file}
-                  style={{ borderBottom: '1px solid rgba(27,35,48,.08)', background: i % 2 ? 'rgba(255,255,255,.4)' : 'transparent' }}
+                  style={{ borderBottom: '1px solid rgba(27,35,48,.08)', background: live ? 'rgba(160,124,52,.06)' : i % 2 ? 'rgba(255,255,255,.4)' : 'transparent' }}
                 >
                   <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#3d4a5a', whiteSpace: 'nowrap' }}>
                     Episode {i + 1}
+                    {live && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--gold-text)', fontFamily: 'var(--font-display)', letterSpacing: '.08em' }}>●</span>}
                   </td>
                   <td style={{ padding: '6px 8px', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                    {tok ? shortModel : '—'}
+                    {tok ? shortModel : dash}
                   </td>
-                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>{castSize}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center' }}>{meta ? castSize : dash}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                    {meta?.wine_amount != null ? (meta.wine_amount === 0 ? 'off' : `${meta.wine_amount.toFixed(1)}×`) : '—'}
-                  </td>
-                  <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                    {meta?.public_context_window ?? '—'}
+                    {meta?.wine_amount != null ? (meta.wine_amount === 0 ? 'off' : `${meta.wine_amount.toFixed(1)}×`) : dash}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                    {meta?.judge_context_window ?? '—'}
+                    {meta?.public_context_window != null ? meta.public_context_window : dash}
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                    {meta?.judge_context_window != null ? meta.judge_context_window : dash}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                    {tok ? fmt(tok.prompt) : '—'}
+                    {tok ? fmt(tok.prompt) : dash}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                    {tok ? fmt(tok.completion) : '—'}
+                    {tok ? fmt(tok.completion) : dash}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600 }}>
-                    {tok ? fmt(tok.total) : '—'}
+                    {tok ? fmt(tok.total) : dash}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--gold-text)' }}>
-                    {tok ? `$${cost(tok.prompt, tok.completion)}` : '—'}
+                    {tok ? `$${cost(tok.prompt, tok.completion)}` : dash}
                   </td>
                 </tr>
               )
@@ -862,10 +970,13 @@ function ModelPicker({ availableModels, modelConfig, onChange }) {
               border: '1px solid rgba(160,124,52,.35)',
               borderRadius: 3,
               padding: '5px 6px',
-              color: '#1b2330',
+              color: modelConfig[role] ? '#1b2330' : 'var(--ink-muted)',
               width: '100%',
             }}
           >
+            {!modelConfig[role] && (
+              <option value=''>{availableModels.length ? '— select model —' : 'loading…'}</option>
+            )}
             {modelConfig[role] && !availableModels.find((m) => m.litellm_id === modelConfig[role]) && (
               <option value={modelConfig[role]}>{modelConfig[role]}</option>
             )}
@@ -1106,7 +1217,7 @@ function _loadPrefs() {
 }
 
 export default function EvalPage() {
-  const { runs, personas, isFilming, startRun, refreshRuns } = useEpisode()
+  const { runs, personas, isFilming, startRun, refreshRuns, file: liveFile } = useEpisode()
 
   // Initialise all UI prefs from localStorage so settings survive page reloads.
   const _saved = useMemo(_loadPrefs, [])
@@ -1160,6 +1271,13 @@ export default function EvalPage() {
       body: JSON.stringify({ [key]: value }),
     }).catch(() => {})
   }
+
+  // When filming starts, refresh runs so the live file appears in the table.
+  const prevFilmingRef = useRef(false)
+  useEffect(() => {
+    if (isFilming && !prevFilmingRef.current) refreshRuns()
+    prevFilmingRef.current = isFilming
+  }, [isFilming])
 
   // Load eval summary on mount / when runs change / on explicit refresh
   useEffect(() => {
@@ -1702,6 +1820,8 @@ export default function EvalPage() {
               loading={summaryData === null && !summaryError}
               error={summaryError}
               onRefresh={() => { refreshRuns(); setSummaryRefreshKey(k => k + 1) }}
+              isFilming={isFilming}
+              liveFile={liveFile}
             />
           </div>
 
@@ -1724,7 +1844,7 @@ export default function EvalPage() {
           {/* 3. Composure trajectory */}
           <ChartCard
             title="Composure trajectory"
-            question='When does each personality reach "gone"?'
+            question='How low does each personality go? Dots = min composure per run. Darker = later episode.'
           >
             <D3Chart draw={drawComposureTrajectory} data={filteredRuns} />
           </ChartCard>
@@ -1732,7 +1852,7 @@ export default function EvalPage() {
           {/* 4. Time to first breakdown */}
           <ChartCard
             title="Time to first breakdown"
-            question="Is a result stable or one lucky run?"
+            question="When does each personality first slip below composure 45? Dot at right edge = held it together all night."
           >
             <D3Chart draw={drawBreakdownHistogram} data={filteredRuns} />
           </ChartCard>

@@ -79,9 +79,10 @@ class AllianceLedger:
         return ledger
 
 
-# Regex: ALLY: [Name] or FEUD: [Name] at end of turn, optional trailing whitespace.
+# Regex: ALLY: [Name] or FEUD: [Name] at end of turn.
+# Brackets are optional — models frequently omit them despite prompt instructions.
 _SIGNAL_RE = re.compile(
-    r"\n(ALLY|FEUD):\s*\[([^\]]+)\]\s*$",
+    r"\n(ALLY|FEUD):\s*\[?([A-Za-z][^\]\n]*?)\]?\s*$",
     re.IGNORECASE,
 )
 

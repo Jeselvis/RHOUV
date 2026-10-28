@@ -192,14 +192,7 @@ export default function OpeningCredits({ onBegin }) {
           </div>
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            {file && !isFilming && (
-              <div style={{ fontSize: 14, color: 'var(--ink-secondary)' }}>
-                Replaying{' '}
-                <span style={{ fontFamily: 'var(--font-mono)' }}>
-                  Episode {runs.indexOf(file) + 1}
-                </span>
-              </div>
-            )}
+
             {filmError && (
               <div style={{ fontSize: 12, color: '#a3262b' }}>{filmError}</div>
             )}

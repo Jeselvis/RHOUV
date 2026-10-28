@@ -1,65 +1,45 @@
 {
-  "episode_count": 1,
+  "episode_count": 2,
   "alliances": [],
   "personalities": {
     "Bianca Noel": {
-      "brand_end": 91.0,
-      "composure_min": 42.5,
+      "brand_end": 103.0,
+      "composure_min": 65.0,
       "interruptions_received": [],
-      "interruptions_given": [
-        "Cassandra Cole",
-        "Cassandra Cole"
-      ],
+      "interruptions_given": [],
       "grudges": []
     },
     "Cassandra Cole": {
-      "brand_end": 104.0,
-      "composure_min": 27.5,
-      "interruptions_received": [
-        "Bianca Noel",
-        "Bianca Noel"
-      ],
-      "interruptions_given": [
-        "Diane Wentworth"
-      ],
-      "grudges": [
-        "Bianca Noel"
-      ]
+      "brand_end": 114.0,
+      "composure_min": 65.0,
+      "interruptions_received": [],
+      "interruptions_given": [],
+      "grudges": []
     },
     "Diane Wentworth": {
-      "brand_end": 93.0,
-      "composure_min": 17.5,
-      "interruptions_received": [
-        "Cassandra Cole"
-      ],
+      "brand_end": 96.0,
+      "composure_min": 65.0,
+      "interruptions_received": [],
       "interruptions_given": [],
-      "grudges": [
-        "Cassandra Cole"
-      ]
+      "grudges": []
     },
     "Madison Fleur": {
-      "brand_end": 92.0,
-      "composure_min": 47.5,
+      "brand_end": 97.0,
+      "composure_min": 65.0,
       "interruptions_received": [],
-      "interruptions_given": [
-        "Petra Voss"
-      ],
+      "interruptions_given": [],
       "grudges": []
     },
     "Petra Voss": {
-      "brand_end": 110.0,
-      "composure_min": 35,
-      "interruptions_received": [
-        "Madison Fleur"
-      ],
+      "brand_end": 115.0,
+      "composure_min": 45.0,
+      "interruptions_received": [],
       "interruptions_given": [],
-      "grudges": [
-        "Madison Fleur"
-      ]
+      "grudges": []
     },
     "Vivienne Davenport": {
-      "brand_end": 97.0,
-      "composure_min": 20,
+      "brand_end": 94.0,
+      "composure_min": 30.0,
       "interruptions_received": [],
       "interruptions_given": [],
       "grudges": []

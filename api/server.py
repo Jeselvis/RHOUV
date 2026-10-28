@@ -38,16 +38,6 @@ _engine_config: dict[str, int] = {}
 
 # Approximate cost per 1M tokens (input, output) for known Magica-served models.
 # These are estimates — check Magica's pricing page for exact figures.
-_COST_HINTS: dict[str, dict] = {
-    "~anthropic/claude-haiku-latest":     {"input_per_m": 0.80,  "output_per_m": 4.00},
-    "~anthropic/claude-sonnet-latest":    {"input_per_m": 3.00,  "output_per_m": 15.00},
-    "~anthropic/claude-opus-latest":      {"input_per_m": 15.00, "output_per_m": 75.00},
-    "deepseek/deepseek-v4.1-flash":       {"input_per_m": 0.07,  "output_per_m": 0.28},
-    "deepseek/deepseek-r1":               {"input_per_m": 0.14,  "output_per_m": 0.56},
-    "deepseek/deepseek-chat":             {"input_per_m": 0.14,  "output_per_m": 0.28},
-    "google/gemini-2.5-flash":            {"input_per_m": 0.15,  "output_per_m": 0.60},
-    "google/gemini-2.5-flash-lite":       {"input_per_m": 0.10,  "output_per_m": 0.40},
-}
 
 
 class ModelConfigBody(BaseModel):
@@ -197,36 +187,31 @@ def start_run(personalities: int = 6, fast: bool = False) -> dict:
 
 @app.get("/models")
 async def list_models() -> list[dict]:
-    """Proxy Magica's model list, enriched with static cost hints.
+    """Return Magica's LLM model list from the public catalog endpoint.
 
-    Returns [] if OPENAI_API_BASE / OPENAI_API_KEY are not configured.
+    Uses /v1/llm/models.json (no auth required). Returns [] on failure.
     The litellm_id field is the model string to pass to the engine.
+    Cost data comes directly from the catalog ($/M tokens).
     """
-    base = os.getenv("OPENAI_API_BASE", "").rstrip("/")
-    key = os.getenv("OPENAI_API_KEY", "")
-    if not base or not key:
-        return []
+    base = os.getenv("OPENAI_API_BASE", "https://inference.magica.com/v1").rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(
-                f"{base}/models",
-                headers={"Authorization": f"Bearer {key}"},
-            )
+            resp = await client.get(f"{base}/llm/models.json")
             resp.raise_for_status()
             raw = resp.json()
     except Exception:
         return []
 
-    items = raw.get("data", []) if isinstance(raw, dict) else raw
+    models_dict = raw.get("magica", {}).get("models", {})
     results = []
-    for item in items:
-        model_id = item.get("id", "")
-        cost = _COST_HINTS.get(model_id, {})
+    for model_id, info in models_dict.items():
+        cost = info.get("cost", {})
         results.append({
-            "id": model_id,
+            "id": info.get("name", model_id),
             "litellm_id": f"openai/{model_id}",
-            "input_per_m": cost.get("input_per_m"),
-            "output_per_m": cost.get("output_per_m"),
+            "input_per_m": cost.get("input"),
+            "output_per_m": cost.get("output"),
+            "reasoning": info.get("reasoning", False),
         })
     return sorted(results, key=lambda x: x["id"])
 

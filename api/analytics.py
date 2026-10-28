@@ -45,8 +45,17 @@ _events_cache: dict[str, list[dict]] = {}
 _summary_cache: dict[str, dict] = {}
 
 
+def _is_complete(events: list[dict]) -> bool:
+    """True if the run has a run_meta event (i.e. the engine finished)."""
+    return any(e.get("type") == "run_meta" for e in events)
+
+
 def load_run_events(file: str) -> list[dict]:
-    """Load events from a run file. Returns [] on bad/missing path. Cached by filename."""
+    """Load events from a run file. Returns [] on bad/missing path.
+
+    Only caches complete runs (those with a run_meta event). Live runs grow as
+    the engine writes events; caching a partial read would freeze stale data.
+    """
     if file in _events_cache:
         return _events_cache[file]
     if file.startswith("."):
@@ -55,15 +64,17 @@ def load_run_events(file: str) -> list[dict]:
     if path.parent != RUNS_DIR.resolve() or not path.exists():
         return []
     result = read_lines(path)
-    _events_cache[file] = result
+    if _is_complete(result):
+        _events_cache[file] = result
     return result
 
 
 def get_summary(file: str) -> dict | None:
-    """Load and summarize a run file. Both events and summary are cached by filename.
+    """Load and summarize a run file.
 
-    Episode JSONL files are immutable once written (new filename per run), so the
-    cache never goes stale. Returns None if the file is missing or empty.
+    Only caches complete runs (those with a run_meta event). Incomplete/live
+    runs are re-read each time so the summary stays current until the episode
+    finishes, at which point caching kicks in.
     """
     if file in _summary_cache:
         return _summary_cache[file]
@@ -71,7 +82,8 @@ def get_summary(file: str) -> dict | None:
     if not events:
         return None
     summary = compute_summary(events)
-    _summary_cache[file] = summary
+    if _is_complete(events):
+        _summary_cache[file] = summary
     return summary
 
 
@@ -119,11 +131,17 @@ def compute_summary(events: list[dict]) -> dict:
             composure_over_time.setdefault(e["speaker"], []).append(
                 {"idx": i, "value": e["composure"]}
             )
-            if e["composure"] < 20 and first_breakdown.get(e["speaker"]) is None:
+            if e["composure"] < 45 and first_breakdown.get(e["speaker"]) is None:
                 first_breakdown[e["speaker"]] = i
 
         elif t in ("alliance_formed", "feud_declared"):
             alliance_events.append({"a": e["a"], "b": e["b"], "kind": e["kind"]})
+
+        elif t == "interrupt":
+            a = e.get("interruptor") or e.get("interrupter")
+            b = e.get("target") or e.get("interrupted")
+            if a and b:
+                alliance_events.append({"a": a, "b": b, "kind": "feud"})
 
         elif t == "twist":
             twists.append({"idx": i, "event": e})
