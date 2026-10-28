@@ -407,7 +407,6 @@ function CourseDivider({ event }) {
 
 export default function EpisodeFeed() {
   const { feed, personas } = useEpisode()
-  const bottomRef = useRef(null)
   const scrollRef = useRef(null)
   const [activePersonaName, setActivePersonaName] = useState(null)
 
@@ -419,12 +418,14 @@ export default function EpisodeFeed() {
 
   // Auto-scroll only when user is already near the bottom (within 80px).
   // If they've scrolled up to read, don't yank them back down.
+  // Use scrollTo on the container directly — scrollIntoView propagates up
+  // to the page and causes the whole window to jump.
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     if (distFromBottom < 80) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     }
   }, [feed.length])
 
@@ -503,7 +504,6 @@ export default function EpisodeFeed() {
             default:            return null
           }
         })}
-        <div ref={bottomRef} />
       </div>
     </div>
 

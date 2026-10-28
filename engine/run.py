@@ -48,14 +48,10 @@ RUNS_DIR          = Path(__file__).parent.parent / "runs"
 
 # How many recent table-talk lines to include in the public context each turn.
 # Too many = expensive; too few = personalities lose the thread.
-PUBLIC_CONTEXT_WINDOW = 12
+PUBLIC_CONTEXT_WINDOW = int(os.getenv("PUBLIC_CONTEXT_WINDOW", "12"))
 
 # How many recent events the judge reads when scoring.
-JUDGE_CONTEXT_WINDOW = 40
-
-# Composure drop applied when a personality says something cutting or exposes a secret.
-# The dinner loop calls this manually when it detects those moments (M2 will automate it).
-CUTTING_REMARK_HIT = 8.0
+JUDGE_CONTEXT_WINDOW = int(os.getenv("JUDGE_CONTEXT_WINDOW", "40"))
 
 
 # ─── Persona card loading ──────────────────────────────────────────────────────
@@ -160,6 +156,7 @@ WHAT YOU KNOW (private — do not volunteer unless it serves you):
 {offscreen_section}{alliance_section}
 RULES:
 - Speak only as {name}. Stay in character. 2–4 sentences.
+- Keep your responses concise and dramatic. Avoid filler or repetition.
 - You only know what is listed above plus what has been said at the table.
 - Do not reference the show, cameras, or production.
 - If you want to cut someone off mid-conversation, end your response with a new line reading exactly: INTERRUPT: [Name]
@@ -265,6 +262,7 @@ def run_reckoning(
     event_log: list[dict],
     personas: dict[str, dict],
     brand: BrandLedger,
+    judge_context_window: int = JUDGE_CONTEXT_WINDOW,
 ) -> list[dict]:
     """Judge scores each personality and applies brand deltas.
 
@@ -280,7 +278,7 @@ def run_reckoning(
     transcript_events = [
         e for e in event_log
         if e.get("type") in ("table_talk", "confessional", "twist", "interrupt")
-    ][-JUDGE_CONTEXT_WINDOW:]
+    ][-judge_context_window:]
 
     transcript = []
     for e in transcript_events:
@@ -301,10 +299,13 @@ Score each housewife's performance at this dinner on brand value impact.
 Criteria: drama generated, memorable lines, damage dealt to others, damage taken,
 and whether she advanced her personal brand or sabotaged it.
 
-For each housewife, respond with exactly this format:
-NAME: [score delta, e.g. +12 or -8] — [one-line verdict]
+SCORING RULES:
+- Scores range from -20 to +20. Use the full range.
+- Underperformers (boring, desperate, exposed, lost composure, hurt image) MUST receive negative scores.
+- Do not give positive scores out of politeness. The audience rewards performance, not participation.
 
-Be specific. Reference what actually happened. Scores should range roughly -20 to +20."""
+Respond with ONLY a JSON object — no other text:
+{"score": <integer -20 to +20>, "reason": "<one sentence verdict>"}"""
 
     scoring_events = []
 
@@ -314,12 +315,12 @@ Be specific. Reference what actually happened. Scores should range roughly -20 t
                 "role": "user",
                 "content": (
                     f"Here is the dinner transcript:\n\n{transcript_text}\n\n"
-                    f"Score {name}'s performance."
+                    f"Score {name}'s performance. Respond with ONLY the JSON object."
                 ),
             }
         ]
 
-        response = call(MODELS["judge"], judge_system, messages, max_tokens=512)
+        response = call(MODELS["judge"], judge_system, messages, max_tokens=1024)
 
         # Parse "NAME: +12 — verdict" from response.
         delta, verdict = _parse_judge_response(response, name)
@@ -333,15 +334,39 @@ Be specific. Reference what actually happened. Scores should range roughly -20 t
 
 
 def _parse_judge_response(response: str, name: str) -> tuple[float, str]:
-    """Extract score delta and verdict from judge response text.
+    """Extract score delta and verdict from judge response.
 
-    Expected format: "Name: +12 — one-line verdict"
-    Falls back to 0 delta with raw response as verdict if parsing fails.
+    Primary:  JSON {"score": int, "reason": str}
+    Fallback: signed number followed by dash separator
+    Last:     any signed number anywhere in the response
     """
+    import json
     import re
-    match = re.search(r"([+-]?\d+(?:\.\d+)?)\s*[—–-]+\s*(.+)", response)
+
+    # Primary: JSON object.
+    try:
+        # Strip markdown fences if the model wrapped it.
+        clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", response.strip(), flags=re.MULTILINE)
+        obj = json.loads(clean)
+        score = float(obj["score"])
+        reason = str(obj.get("reason", response.strip()[:120]))
+        return score, reason
+    except Exception:
+        pass
+
+    # Fallback 1: "[+-]N — verdict"
+    match = re.search(r"([+-]\d+(?:\.\d+)?)\s*[—–\-]+\s*(.+)", response)
     if match:
+        print(f"  [JUDGE PARSE FALLBACK1] {name}: raw={response.strip()[:80]!r}")
         return float(match.group(1)), match.group(2).strip()
+
+    # Fallback 2: any signed number.
+    fallback = re.search(r"([+-]\d+(?:\.\d+)?)", response)
+    if fallback:
+        print(f"  [JUDGE PARSE FALLBACK2] {name}: raw={response.strip()[:80]!r}")
+        return float(fallback.group(1)), response.strip()[:120]
+
+    print(f"  [JUDGE PARSE FAILED] {name}: raw={response.strip()[:80]!r}")
     return 0.0, response.strip()[:120]
 
 
@@ -370,6 +395,9 @@ def run_episode(
     confessional_every: int = DEFAULT_CONFESSIONAL_EVERY,
     fast: bool = False,
     live_output: Path | None = None,
+    public_context_window: int = PUBLIC_CONTEXT_WINDOW,
+    judge_context_window: int = JUDGE_CONTEXT_WINDOW,
+    wine_amount: float = 1.0,
 ) -> list[dict]:
     """Run one full dinner episode and return the complete event log."""
 
@@ -396,7 +424,8 @@ def run_episode(
 
     # ── Initialise all ledgers and the director ────────────────────────────────
     brand     = BrandLedger(names)
-    composure = ComposureLedger(names, floors=floors)
+    from engine.composure import WINE_TICK_AMOUNT as _WINE_TICK_DEFAULT
+    composure = ComposureLedger(names, floors=floors, wine_tick_amount=_WINE_TICK_DEFAULT * wine_amount)
     director  = Director(names, turns_per_course=turns_per_course, confessional_every=confessional_every)
 
     # ── Alliance ledger — restore from memory if episode 2+ ───────────────────
@@ -494,7 +523,7 @@ def run_episode(
         # ── Build the public context ──────────────────────────────────────────
         # This is the shared dinner conversation every personality can hear.
         # Confessionals are excluded — they're camera-only.
-        public_context = build_public_context(event_log)
+        public_context = build_public_context(event_log, window=public_context_window)
 
         # ── Construct the message history ─────────────────────────────────────
         # The user turn tells the personality what's happening right now:
@@ -597,12 +626,31 @@ def run_episode(
             alliance_event = alliances.set(speaker, alliance_target, alliance_kind)
             log(alliance_event)
 
+        # ── Content-based composure hits ──────────────────────────────────────
+        # If speech names another personality AND contains aggro markers, apply
+        # a small composure drop to each named target. Rewards sharp dialogue
+        # and ensures composure actually moves during the dinner.
+        _AGGRO_HIT = 5.0
+        speech_lower = clean_speech.lower()
+        _has_aggro = any(m in speech_lower for m in (
+            "never", "always", "excuse me", "frankly", "how dare",
+            "pathetic", "ridiculous", "embarrassing", "disgusting",
+            "unbelievable", "nerve", "audacity", "that's rich",
+            "you always", "you never", "your fault",
+        ))
+        if _has_aggro:
+            for other_name in names:
+                if other_name == speaker:
+                    continue
+                if other_name.split()[0].lower() in speech_lower or other_name.lower() in speech_lower:
+                    ev = composure.delta(other_name, -_AGGRO_HIT, f"targeted by {speaker}")
+                    log(ev)
+
         # ── Confessional ───────────────────────────────────────────────────────
         # Fires every N turns on the speaker who just spoke at the table.
         # The personality talks directly to camera — private thoughts only.
         if wants_confessional:
             conf_system  = build_confessional_system(speaker, personas)
-            conf_context = build_public_context(event_log)
             conf_messages = [
                 {
                     "role": "user",
@@ -625,7 +673,7 @@ def run_episode(
 
     # ── Reckoning ──────────────────────────────────────────────────────────────
     # Dinner is over. Judge scores each personality and brand values update.
-    scoring_events = run_reckoning(event_log, personas, brand)
+    scoring_events = run_reckoning(event_log, personas, brand, judge_context_window=judge_context_window)
     for e in scoring_events:
         log(e)
 
@@ -647,11 +695,14 @@ def run_episode(
             "completion": totals["completion"],
             "total":      totals["prompt"] + totals["completion"],
         },
-        "turns_per_course":   turns_per_course,
-        "confessional_every": confessional_every,
-        "cast_size":          len(names),
-        "fast":               fast,
-        "timestamp":          datetime.now(timezone.utc).isoformat(),
+        "turns_per_course":        turns_per_course,
+        "confessional_every":      confessional_every,
+        "cast_size":               len(names),
+        "fast":                    fast,
+        "public_context_window":   public_context_window,
+        "judge_context_window":    judge_context_window,
+        "wine_amount":             wine_amount,
+        "timestamp":               datetime.now(timezone.utc).isoformat(),
     }
     log(meta_event)
 
@@ -677,6 +728,12 @@ def main():
                         help="Override MODEL_DIRECTOR for this run.")
     parser.add_argument("--judge-model", type=str, default=None,
                         help="Override MODEL_JUDGE for this run.")
+    parser.add_argument("--public-context-window", type=int, default=None,
+                        help="Recent table-talk lines each personality sees (default: PUBLIC_CONTEXT_WINDOW env / 12).")
+    parser.add_argument("--judge-context-window", type=int, default=None,
+                        help="Recent events the judge reads at reckoning (default: JUDGE_CONTEXT_WINDOW env / 40).")
+    parser.add_argument("--wine-amount", type=float, default=None,
+                        help="Wine multiplier: 0=off, 1=default, 2=double (default: 1.0).")
     args = parser.parse_args()
 
     model_overrides = {
@@ -699,13 +756,19 @@ def main():
             print(f"  EPISODE {i + 1} of {args.episodes}")
             print(f"{'#'*60}")
 
-        event_log = run_episode(
-            personas,
+        ep_kwargs: dict = dict(
             turns_per_course=turns_per_course,
             confessional_every=DEFAULT_CONFESSIONAL_EVERY,
             fast=args.fast,
             live_output=output_path,
         )
+        if args.public_context_window is not None:
+            ep_kwargs["public_context_window"] = args.public_context_window
+        if args.judge_context_window is not None:
+            ep_kwargs["judge_context_window"] = args.judge_context_window
+        if args.wine_amount is not None:
+            ep_kwargs["wine_amount"] = args.wine_amount
+        event_log = run_episode(personas, **ep_kwargs)
         if output_path is None:
             path = save_episode(event_log)
             print(f"Episode log saved → {path}")

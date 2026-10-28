@@ -762,7 +762,7 @@ function CostTable({ data, loading, error, onRefresh }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid rgba(160,124,52,.3)' }}>
-              {['Run', 'Personality model', 'Cast', 'Input tok', 'Output tok', 'Total tok', 'Est. cost'].map((h) => (
+              {['Run', 'Personality model', 'Cast', 'Wine', 'Pub ctx', 'Judge ctx', 'Input tok', 'Output tok', 'Total tok', 'Est. cost'].map((h) => (
                 <th
                   key={h}
                   style={{
@@ -800,6 +800,15 @@ function CostTable({ data, loading, error, onRefresh }) {
                     {tok ? shortModel : '—'}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>{castSize}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                    {meta?.wine_amount != null ? (meta.wine_amount === 0 ? 'off' : `${meta.wine_amount.toFixed(1)}×`) : '—'}
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                    {meta?.public_context_window ?? '—'}
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                    {meta?.judge_context_window ?? '—'}
+                  </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
                     {tok ? fmt(tok.prompt) : '—'}
                   </td>
@@ -880,26 +889,256 @@ function ModelPicker({ availableModels, modelConfig, onChange }) {
   )
 }
 
+// ─── Alliance evolution animation ─────────────────────────────────────────────
+
+const _CTL_BTN = (disabled) => ({
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: '.08em',
+  padding: '4px 10px',
+  border: '1px solid rgba(160,124,52,.4)',
+  borderRadius: 3,
+  background: 'transparent',
+  color: disabled ? 'rgba(61,74,90,.3)' : '#3d4a5a',
+  cursor: disabled ? 'default' : 'pointer',
+})
+
+function AllianceEvolutionChart({ runs }) {
+  const [frameIdx, setFrameIdx] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const svgRef = useRef(null)
+
+  const activeNames = runs[0]?.activeNames ?? CAST_ORDER
+
+  // Build per-episode cumulative alliance state
+  const frames = useMemo(() => {
+    if (!runs.length) return []
+    const cumulative = {}
+    return runs.map((run) => {
+      for (const ev of run.alliance_events ?? []) {
+        const key = [ev.a, ev.b].sort().join('|')
+        cumulative[key] = ev.kind
+      }
+      return {
+        mentionWeights: run.alliance_weights ?? {},
+        explicitEdges: { ...cumulative },
+      }
+    })
+  }, [runs])
+
+  // Reset when episode list changes
+  useEffect(() => { setFrameIdx(0); setPlaying(false) }, [runs])
+
+  // Auto-play
+  useEffect(() => {
+    if (!playing) return
+    const id = setInterval(() => {
+      setFrameIdx((prev) => {
+        if (prev >= frames.length - 1) { setPlaying(false); return prev }
+        return prev + 1
+      })
+    }, 1200)
+    return () => clearInterval(id)
+  }, [playing, frames.length])
+
+  // Fixed circular node positions
+  const positions = useMemo(() => {
+    const W = 400, H = 220, CX = W / 2, CY = H / 2
+    const R = 80
+    const pos = {}
+    activeNames.forEach((name, i) => {
+      const angle = (2 * Math.PI * i / activeNames.length) - Math.PI / 2
+      pos[name] = { x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle) }
+    })
+    return pos
+  }, [activeNames])
+
+  // Draw nodes (only when cast changes)
+  useEffect(() => {
+    if (!svgRef.current) return
+    const svg = d3.select(svgRef.current)
+    svg.selectAll('*').remove()
+    svg.append('g').attr('class', 'edges-layer')
+    const nodesG = svg.append('g').attr('class', 'nodes-layer')
+    const NODE_SIZE = 28
+    const IMG_W = 1424, FACE_Y = 270, k = NODE_SIZE / 50
+    for (const name of activeNames) {
+      const p = positions[name]
+      if (!p) continue
+      const g = nodesG.append('g').attr('transform', `translate(${p.x},${p.y})`)
+      // Coloured ring behind the avatar
+      g.append('circle')
+        .attr('r', NODE_SIZE / 2 + 2)
+        .attr('fill', 'none')
+        .attr('stroke', personaColor(name))
+        .attr('stroke-width', 2)
+      // Avatar via foreignObject → HTML div with sprite clip
+      const { fx } = { fx: 178, ...(() => {
+        const POS = {
+          'Vivienne Davenport': { fx: 178 }, 'Cassandra Cole': { fx: 394 },
+          'Bianca Noel': { fx: 608 }, 'Diane Wentworth': { fx: 822 },
+          'Petra Voss': { fx: 1043 }, 'Madison Fleur': { fx: 1258 },
+        }
+        return POS[name] ?? {}
+      })() }
+      g.append('foreignObject')
+        .attr('x', -NODE_SIZE / 2).attr('y', -NODE_SIZE / 2)
+        .attr('width', NODE_SIZE).attr('height', NODE_SIZE)
+        .append('xhtml:div')
+        .style('width', NODE_SIZE + 'px').style('height', NODE_SIZE + 'px')
+        .style('border-radius', '50%').style('overflow', 'hidden')
+        .style('background-image', "url('/title-card.webp')")
+        .style('background-size', `${IMG_W * k}px auto`)
+        .style('background-position', `${-(fx * k - NODE_SIZE / 2)}px ${-(FACE_Y * k - NODE_SIZE / 2)}px`)
+        .style('background-repeat', 'no-repeat')
+    }
+  }, [activeNames, positions])
+
+  // Update edges with D3 transitions on frame change
+  useEffect(() => {
+    if (!svgRef.current || !frames.length) return
+    const svg = d3.select(svgRef.current)
+    const edgesLayer = svg.select('.edges-layer')
+    if (edgesLayer.empty()) return
+
+    const frame = frames[Math.min(frameIdx, frames.length - 1)]
+    const maxMention = Math.max(1, ...Object.values(frame.mentionWeights))
+
+    const allKeys = new Set([
+      ...Object.keys(frame.mentionWeights),
+      ...Object.keys(frame.explicitEdges),
+    ])
+
+    const edgeData = []
+    for (const key of allKeys) {
+      const [a, b] = key.split('|')
+      const pa = positions[a], pb = positions[b]
+      if (!pa || !pb) continue
+      const kind = frame.explicitEdges[key]
+      const w = frame.mentionWeights[key] ?? 0
+      if (kind === 'ally') {
+        edgeData.push({ key, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+          stroke: '#b48a35', strokeWidth: 3, opacity: 1, dasharray: '' })
+      } else if (kind === 'feud') {
+        edgeData.push({ key, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+          stroke: '#b2393f', strokeWidth: 3, opacity: 1, dasharray: '6 4' })
+      } else if (w > 0) {
+        edgeData.push({ key, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+          stroke: '#8899aa', strokeWidth: 0.5 + (w / maxMention) * 1.5,
+          opacity: 0.12 + 0.28 * (w / maxMention), dasharray: '' })
+      }
+    }
+
+    const T = d3.transition().duration(500).ease(d3.easeCubicInOut)
+    const lines = edgesLayer.selectAll('line.ae').data(edgeData, (d) => d.key)
+
+    lines.enter()
+      .append('line').attr('class', 'ae')
+      .attr('x1', (d) => d.x1).attr('y1', (d) => d.y1)
+      .attr('x2', (d) => d.x2).attr('y2', (d) => d.y2)
+      .attr('opacity', 0)
+      .merge(lines)
+      .transition(T)
+      .attr('opacity', (d) => d.opacity)
+      .attr('stroke', (d) => d.stroke)
+      .attr('stroke-width', (d) => d.strokeWidth)
+      .attr('stroke-dasharray', (d) => d.dasharray)
+
+    lines.exit().transition(T).attr('opacity', 0).remove()
+  }, [frameIdx, frames, positions])
+
+  if (!runs.length) return (
+    <div style={{ fontSize: 12, color: 'var(--ink-muted)', padding: '20px 0' }}>No episodes yet.</div>
+  )
+
+  const atStart = frameIdx === 0
+  const atEnd = frameIdx >= frames.length - 1
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ position: 'relative' }}>
+        <svg ref={svgRef} viewBox="0 0 400 220"
+          style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }} />
+        <div style={{
+          position: 'absolute', top: 2, right: 0,
+          fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 700,
+          letterSpacing: '.1em', color: 'var(--gold-text)',
+        }}>
+          EP {frameIdx + 1} / {frames.length}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={() => setFrameIdx((p) => Math.max(0, p - 1))}
+          disabled={atStart} style={_CTL_BTN(atStart)}>←</button>
+        <button
+          onClick={() => {
+            if (atEnd) { setFrameIdx(0); setPlaying(true) }
+            else setPlaying((p) => !p)
+          }}
+          style={_CTL_BTN(false)}
+        >{playing ? '⏸' : atEnd ? '↺' : '▶'}</button>
+        <button onClick={() => setFrameIdx((p) => Math.min(frames.length - 1, p + 1))}
+          disabled={atEnd} style={_CTL_BTN(atEnd)}>→</button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, fontSize: 11, color: 'var(--ink-muted)', alignItems: 'center' }}>
+          {[
+            { stroke: '#8899aa', width: 1.5, dash: null, label: 'mentions' },
+            { stroke: '#b48a35', width: 3,   dash: null, label: 'ally' },
+            { stroke: '#b2393f', width: 3,   dash: '5 3', label: 'feud' },
+          ].map(({ stroke, width, dash, label }) => (
+            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="20" height="8">
+                <line x1="0" y1="4" x2="20" y2="4"
+                  stroke={stroke} strokeWidth={width}
+                  strokeDasharray={dash ?? undefined} />
+              </svg>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const _PREFS_KEY = 'rhouv_eval_prefs'
+function _loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(_PREFS_KEY) ?? '{}') } catch { return {} }
+}
+
 export default function EvalPage() {
   const { runs, personas, isFilming, startRun, refreshRuns } = useEpisode()
+
+  // Initialise all UI prefs from localStorage so settings survive page reloads.
+  const _saved = useMemo(_loadPrefs, [])
+
   const [castOn, setCastOn] = useState(
-    Object.fromEntries(CAST_ORDER.map((n) => [n, true]))
+    _saved.castOn ?? Object.fromEntries(CAST_ORDER.map((n) => [n, true]))
   )
-  const [twists, setTwists] = useState('frequent')
-  const [interrupts, setInterrupts] = useState(true)
-  const [wine, setWine] = useState(true)
-  const [insultWeight, setInsultWeight] = useState(1.4)
-  const [thresholds, setThresholds] = useState([70, 45, 20])
+  const [twists, setTwists] = useState(_saved.twists ?? 'frequent')
+  const [interrupts, setInterrupts] = useState(_saved.interrupts ?? true)
+  const [wineAmount, setWineAmount] = useState(_saved.wineAmount ?? 1.0)
+  const [insultWeight, setInsultWeight] = useState(_saved.insultWeight ?? 1.4)
+  const [thresholds, setThresholds] = useState(_saved.thresholds ?? [70, 45, 20])
   const [confirming, setConfirming] = useState(false)
   const [summaryData, setSummaryData] = useState(null) // null = not yet loaded
   const [summaryError, setSummaryError] = useState(false)
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0)
   const [availableModels, setAvailableModels] = useState([])
   const [modelConfig, setModelConfig] = useState({})
+  const [engineConfig, setEngineConfig] = useState({ public_context_window: 12, judge_context_window: 40 })
+
+  // Persist UI prefs to localStorage whenever they change.
+  useEffect(() => {
+    localStorage.setItem(_PREFS_KEY, JSON.stringify(
+      { castOn, twists, interrupts, wineAmount, insultWeight, thresholds }
+    ))
+  }, [castOn, twists, interrupts, wineAmount, insultWeight, thresholds])
 
   // Load available models + current model config on mount
   useEffect(() => {
     fetch('/api/models').then((r) => r.json()).then((d) => { if (Array.isArray(d)) setAvailableModels(d) }).catch(() => {})
     fetch('/api/config/models').then((r) => r.json()).then((d) => { if (d) setModelConfig(d) }).catch(() => {})
+    fetch('/api/config/engine').then((r) => r.json()).then((d) => { if (d) setEngineConfig(d) }).catch(() => {})
   }, [])
 
   const handleModelChange = (role, value) => {
@@ -912,15 +1151,26 @@ export default function EvalPage() {
     }).catch(() => {})
   }
 
-  // Load eval summary on mount / when runs change
+  const handleEngineConfigChange = (key, value) => {
+    const next = { ...engineConfig, [key]: value }
+    setEngineConfig(next)
+    fetch('/api/config/engine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value }),
+    }).catch(() => {})
+  }
+
+  // Load eval summary on mount / when runs change / on explicit refresh
   useEffect(() => {
     if (!runs.length) return
+    setSummaryData(null)
     setSummaryError(false)
     fetch(`/api/eval/summary?runs=${runs.join(',')}`)
       .then((r) => { if (!r.ok) throw new Error(r.status); return r.json() })
       .then((d) => { if (Array.isArray(d)) setSummaryData(d) })
       .catch(() => setSummaryError(true))
-  }, [runs.join(',')])
+  }, [runs.join(','), summaryRefreshKey])
 
   const activeRuns = summaryData ?? []
 
@@ -1106,10 +1356,35 @@ export default function EvalPage() {
             </div>
           </div>
 
-          {/* Interrupt + Wine toggles */}
+          {/* Interrupt toggle + Wine slider */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Toggle label="Interrupts" value={interrupts} onChange={setInterrupts} />
-            <Toggle label="Wine" value={wine} onChange={setWine} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#3d4a5a' }}>
+                  Wine
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: wineAmount === 0 ? 'var(--ink-muted)' : '#3d4a5a' }}>
+                  {wineAmount === 0 ? 'off' : `${wineAmount.toFixed(1)}×`}
+                </div>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={3}
+                step={0.5}
+                value={wineAmount}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value)
+                  setWineAmount(v)
+                  handleEngineConfigChange('wine_amount', v)
+                }}
+                style={{ width: '100%', accentColor: '#b48a35' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink-muted)' }}>
+                <span>off</span><span>1× default</span><span>3× heavy</span>
+              </div>
+            </div>
           </div>
 
           {/* Insult weight slider */}
@@ -1231,6 +1506,46 @@ export default function EvalPage() {
             modelConfig={modelConfig}
             onChange={handleModelChange}
           />
+
+          {/* Context windows */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#3d4a5a' }}>
+              Context windows
+            </div>
+            {[
+              { key: 'public_context_window', label: 'Table ctx', hint: 'lines each personality sees' },
+              { key: 'judge_context_window',  label: 'Judge ctx', hint: 'events judge reads' },
+            ].map(({ key, label, hint }) => (
+              <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <div style={{ fontSize: 10, color: '#556173', letterSpacing: '.08em' }}>{label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-muted)' }}>{hint}</div>
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={engineConfig[key] ?? ''}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10)
+                    if (v > 0) handleEngineConfigChange(key, v)
+                  }}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 13,
+                    background: '#fff',
+                    border: '1px solid rgba(160,124,52,.35)',
+                    borderRadius: 3,
+                    padding: '6px 8px',
+                    width: '100%',
+                  }}
+                />
+              </div>
+            ))}
+            <div style={{ fontSize: 10, color: 'var(--ink-muted)', lineHeight: 1.4 }}>
+              Affects next filmed episode.
+            </div>
+          </div>
 
           {/* Film episode */}
           <div
@@ -1386,7 +1701,7 @@ export default function EvalPage() {
               data={activeRuns}
               loading={summaryData === null && !summaryError}
               error={summaryError}
-              onRefresh={() => { refreshRuns(); setSummaryData(null); setSummaryError(false) }}
+              onRefresh={() => { refreshRuns(); setSummaryRefreshKey(k => k + 1) }}
             />
           </div>
 
@@ -1468,6 +1783,14 @@ export default function EvalPage() {
             question="Does low composure produce shorter or longer turns? Bars = high / mid / low composure."
           >
             <D3Chart draw={drawBehaviorShift} data={filteredRuns} />
+          </ChartCard>
+
+          {/* 9. Alliance evolution */}
+          <ChartCard
+            title="Alliance evolution"
+            question="How do mention ties and explicit alliances shift across episodes?"
+          >
+            <AllianceEvolutionChart runs={filteredRuns} />
           </ChartCard>
         </div>
       </div>

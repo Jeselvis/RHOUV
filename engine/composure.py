@@ -27,11 +27,13 @@ from datetime import datetime, timezone
 STARTING_COMPOSURE = 100.0
 
 # How much the global wine level rises each course transition.
-WINE_TICK_AMOUNT = 12.0
+WINE_TICK_AMOUNT = 20.0
 
 # How much wine level translates to composure drop per tick.
-# Wine affects everyone but not 1:1 — loosens rather than breaks.
-WINE_COMPOSURE_FACTOR = 0.6
+# Escalating: early courses loosen (small drop), dessert hits harder.
+# Formula: drop = wine_level * WINE_COMPOSURE_FACTOR
+# Tick 1 (level 20): ~5 pts.  Tick 2 (level 40): ~10 pts.  Total ~15 pts.
+WINE_COMPOSURE_FACTOR = 0.25
 
 # Thresholds and their prompt injections.
 # Checked top-down; first match wins.
@@ -46,15 +48,23 @@ _LEVELS = [
 class ComposureLedger:
     """Tracks composure per personality and global wine level."""
 
-    def __init__(self, names: list[str], floors: dict[str, float] | None = None):
+    def __init__(
+        self,
+        names: list[str],
+        floors: dict[str, float] | None = None,
+        wine_tick_amount: float = WINE_TICK_AMOUNT,
+    ):
         """
         Args:
-            names:  All personality names in the episode.
-            floors: Per-personality composure floors. Composure will not drop
-                    below this value. Keyed by full name. Missing = 0.
+            names:            All personality names in the episode.
+            floors:           Per-personality composure floors. Composure will not drop
+                              below this value. Keyed by full name. Missing = 0.
+            wine_tick_amount: How much the global wine level rises each course
+                              transition. 0 = no wine effect. Default = WINE_TICK_AMOUNT.
         """
         self._composure: dict[str, float] = {name: STARTING_COMPOSURE for name in names}
         self._floors: dict[str, float] = floors or {}
+        self._wine_tick_amount: float = wine_tick_amount
         self._wine_level: float = 0.0
         self._history: list[dict] = []
 
@@ -97,8 +107,8 @@ class ComposureLedger:
         The drop is proportional to wine level — early courses barely register,
         dessert hits harder because wine has been accumulating.
         """
-        self._wine_level = min(100.0, self._wine_level + WINE_TICK_AMOUNT)
-        drop = self._wine_level * WINE_COMPOSURE_FACTOR / 10.0  # scale to ~1-6 pts per tick
+        self._wine_level = min(100.0, self._wine_level + self._wine_tick_amount)
+        drop = self._wine_level * WINE_COMPOSURE_FACTOR
 
         events = []
         for name in self._composure:

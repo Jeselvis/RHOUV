@@ -21,7 +21,7 @@ PERSONALITIES_DIR = BASE_DIR / "engine" / "personalities"
 
 from api.analytics import (  # noqa: E402
     CAST_FIRST_NAMES,
-    compute_summary,
+    get_summary,
     load_run_events as _load_run_events_analytics,
     read_lines as _read_lines_analytics,
 )
@@ -32,6 +32,9 @@ _active_run: dict = {"proc": None, "file": None}
 
 # Model overrides for the next /run call (in-memory, resets on server restart).
 _model_config: dict[str, str] = {}
+
+# Engine parameter overrides (context windows etc.) — in-memory, reset on restart.
+_engine_config: dict[str, int] = {}
 
 # Approximate cost per 1M tokens (input, output) for known Magica-served models.
 # These are estimates — check Magica's pricing page for exact figures.
@@ -51,6 +54,12 @@ class ModelConfigBody(BaseModel):
     personality: str | None = None
     director: str | None = None
     judge: str | None = None
+
+
+class EngineConfigBody(BaseModel):
+    public_context_window: int | None = None
+    judge_context_window: int | None = None
+    wine_amount: float | None = None
 
 app.mount("/images", StaticFiles(directory=str(BASE_DIR / "images")), name="images")
 
@@ -173,6 +182,12 @@ def start_run(personalities: int = 6, fast: bool = False) -> dict:
         model = _model_config.get(role) or MODELS.get(role)
         if model:
             cmd.extend([flag, model])
+    for key, flag in [("public_context_window", "--public-context-window"),
+                      ("judge_context_window",  "--judge-context-window"),
+                      ("wine_amount",           "--wine-amount")]:
+        val = _engine_config.get(key)
+        if val is not None:
+            cmd.extend([flag, str(val)])
 
     proc = subprocess.Popen(cmd, cwd=str(BASE_DIR))
     _active_run["proc"] = proc
@@ -234,6 +249,27 @@ def set_model_config(body: ModelConfigBody) -> dict:
     return {role: _model_config.get(role, model) for role, model in MODELS.items()}
 
 
+_ENGINE_DEFAULTS = {"public_context_window": 12, "judge_context_window": 40, "wine_amount": 1.0}
+
+
+@app.get("/config/engine")
+def get_engine_config() -> dict:
+    """Return current engine parameter config (overrides merged with defaults)."""
+    return {k: _engine_config.get(k, v) for k, v in _ENGINE_DEFAULTS.items()}
+
+
+@app.post("/config/engine")
+def set_engine_config(body: EngineConfigBody) -> dict:
+    """Override engine parameters for subsequent /run calls."""
+    if body.public_context_window is not None:
+        _engine_config["public_context_window"] = body.public_context_window
+    if body.judge_context_window is not None:
+        _engine_config["judge_context_window"] = body.judge_context_window
+    if body.wine_amount is not None:
+        _engine_config["wine_amount"] = body.wine_amount
+    return {k: _engine_config.get(k, v) for k, v in _ENGINE_DEFAULTS.items()}
+
+
 @app.get("/run/status")
 def run_status() -> dict:
     """Return whether a run is in progress and which file it's writing to."""
@@ -244,21 +280,12 @@ def run_status() -> dict:
     return {"running": running, "file": _active_run["file"]}
 
 
-def _load_run_events(file: str) -> list[dict]:
-    return _load_run_events_analytics(file)
-
-
 @app.get("/eval/summary")
 def eval_summary(runs: str = Query(...)) -> list[dict]:
     run_names = [r.strip() for r in runs.split(",") if r.strip()]
     results = []
-
     for name in run_names:
-        events = _load_run_events(name)
-        if not events:
-            continue
-
-        summary = compute_summary(events)
-        results.append({"file": name, **summary})
-
+        summary = get_summary(name)
+        if summary:
+            results.append({"file": name, **summary})
     return results

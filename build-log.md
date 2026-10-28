@@ -2,6 +2,12 @@
 
 ---
 
+## 2026-10-28
+
+Added rule to personality system prompt: "Keep your responses concise and dramatic. Avoid filler or repetition." The ladies were droning — long, meandering turns with no edge. The instruction sits in the RULES block so it applies every turn, not just when composure is low.
+
+---
+
 ## 2026-10-24
 
 Started the project. Folder structure in place. Six personality cards written — leaning on Real Housewives archetypes for voice. Secret web forms a cycle across four of them (Vivienne → Diane → Bianca → Petra → back to Vivienne) and a mutual-deterrence standoff between Cassandra and Madison who know each other's secrets and can't shoot first.
@@ -89,6 +95,34 @@ MCP analytics server, so RHOUV episode data is queryable conversationally inside
 **Notes:**
 - Package named `rhouv_mcp/` not `mcp/` — local `mcp/` would shadow the installed SDK.
 - `mcp` 2.x is installed; `FastMCP` was renamed `MCPServer` in that version (`from mcp.server.mcpserver import MCPServer`).
+
+---
+
+## 2026-10-27 (bugs + judge refactor)
+
+**Bug: eval page analytics disappear on "Refresh episodes"**
+
+`onRefresh` called `setSummaryData(null)` then `refreshRuns()`. If the run list hadn't changed, `runs.join(',')` was identical — the `useEffect` dep didn't fire, so `summaryData` stayed null forever. Fix: added `summaryRefreshKey` counter state, bumped on refresh, added to `useEffect` deps. `setSummaryData(null)` moved inside the effect so it only clears when a fetch is actually starting.
+
+**Bug: brand value never drops below 100**
+
+Three causes, all fixed:
+
+1. *Judge prompt too lenient.* Criteria listed drama and memorable lines (rewarded) but said nothing about penalizing underperformers. Claude Haiku defaults positive. Added explicit rule: "negative scores are required for underperformers, do not give positive scores out of politeness."
+
+2. *Parser silently returned 0 on failure.* Regex `([+-]?\d+)` with optional sign — `8` parsed as `+8`. Any format deviation (wrong separator, markdown fence, no sign) → delta 0. Added two fallback tiers and console warnings when fallbacks fire so failures are visible.
+
+3. *`max_tokens=512` for judge.* Reasoning models (Claude via Magica) burn thinking tokens against the budget. Judge response could truncate, returning empty or partial content → parse failure → delta 0. Raised to 1024 (same as personality).
+
+**Judge: switched to structured JSON output**
+
+Judge now prompted to return `{"score": int, "reason": str}` — no free-form format. Parser tries `json.loads()` first (strips markdown fences if present), falls back to regex if the model strays, falls back again to any signed number in the response. Three tiers of recovery instead of one silent failure.
+
+**Why JSON for judge but not director/personality:**
+
+Director twist output is passed directly as a narrative string — nothing is parsed out of it. Structured output adds no value.
+
+Personality speech uses in-band markers (`INTERRUPT: [Name]`, `ALLY: [Name]`, `FEUD: [Name]`) appended after free text. Forcing JSON on personality output would split the model's attention between staying in character and filling a schema — real risk of degrading voice quality for minimal reliability gain. The marker regex is simple and the model is given exact names to match. Judge was the right target: it's a scoring function with a clear numeric output, not a creative voice.
 
 ---
 

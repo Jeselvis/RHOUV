@@ -1,0 +1,68 @@
+{
+  "episode_count": 1,
+  "alliances": [],
+  "personalities": {
+    "Bianca Noel": {
+      "brand_end": 91.0,
+      "composure_min": 42.5,
+      "interruptions_received": [],
+      "interruptions_given": [
+        "Cassandra Cole",
+        "Cassandra Cole"
+      ],
+      "grudges": []
+    },
+    "Cassandra Cole": {
+      "brand_end": 104.0,
+      "composure_min": 27.5,
+      "interruptions_received": [
+        "Bianca Noel",
+        "Bianca Noel"
+      ],
+      "interruptions_given": [
+        "Diane Wentworth"
+      ],
+      "grudges": [
+        "Bianca Noel"
+      ]
+    },
+    "Diane Wentworth": {
+      "brand_end": 93.0,
+      "composure_min": 17.5,
+      "interruptions_received": [
+        "Cassandra Cole"
+      ],
+      "interruptions_given": [],
+      "grudges": [
+        "Cassandra Cole"
+      ]
+    },
+    "Madison Fleur": {
+      "brand_end": 92.0,
+      "composure_min": 47.5,
+      "interruptions_received": [],
+      "interruptions_given": [
+        "Petra Voss"
+      ],
+      "grudges": []
+    },
+    "Petra Voss": {
+      "brand_end": 110.0,
+      "composure_min": 35,
+      "interruptions_received": [
+        "Madison Fleur"
+      ],
+      "interruptions_given": [],
+      "grudges": [
+        "Madison Fleur"
+      ]
+    },
+    "Vivienne Davenport": {
+      "brand_end": 97.0,
+      "composure_min": 20,
+      "interruptions_received": [],
+      "interruptions_given": [],
+      "grudges": []
+    }
+  }
+}

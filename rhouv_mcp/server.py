@@ -18,7 +18,7 @@ from mcp.server.mcpserver import MCPServer
 from api.analytics import (
     CAST_FIRST_NAMES,
     RUNS_DIR,
-    compute_summary,
+    get_summary,
     latest_run,
     load_run_events,
 )
@@ -64,10 +64,9 @@ def get_leaderboard(run: str | None = None) -> dict:
     filename = _resolve(run)
     if not filename:
         return {"error": "no episodes found"}
-    events = load_run_events(filename)
-    if not events:
+    summary = get_summary(filename)
+    if not summary:
         return {"error": f"no events in {filename}"}
-    summary = compute_summary(events)
     ranked = sorted(summary["final_brand"].items(), key=lambda kv: kv[1], reverse=True)
     return {
         "file": filename,
@@ -89,14 +88,10 @@ def get_personality_arc(name: str, run: str | None = None) -> dict:
     filename = _resolve(run)
     if not filename:
         return {"error": "no episodes found"}
-    events = load_run_events(filename)
-    if not events:
+    summary = get_summary(filename)
+    if not summary:
         return {"error": f"no events in {filename}"}
-
-    # Resolve full name
     full_name = CAST_FIRST_NAMES.get(name.split()[0].capitalize(), name)
-
-    summary = compute_summary(events)
     return {
         "file": filename,
         "name": full_name,
@@ -117,21 +112,20 @@ def get_alliances(run: str | None = None) -> dict:
     filename = _resolve(run)
     if not filename:
         return {"error": "no episodes found"}
-    events = load_run_events(filename)
-    if not events:
+    summary = get_summary(filename)
+    if not summary:
         return {"error": f"no events in {filename}"}
-    summary = compute_summary(events)
     edges = [
         {"pair": key, "weight": weight}
         for key, weight in sorted(
             summary["alliance_weights"].items(), key=lambda kv: kv[1], reverse=True
         )
     ]
-    alliance_events = [
-        e for e in events
-        if e.get("type") in ("alliance_formed", "feud_declared")
-    ]
-    return {"file": filename, "edges": edges, "alliance_events": alliance_events}
+    return {
+        "file": filename,
+        "edges": edges,
+        "alliance_events": summary["alliance_events"],
+    }
 
 
 @mcp.tool()
@@ -172,10 +166,9 @@ def get_twists(run: str | None = None) -> dict:
     filename = _resolve(run)
     if not filename:
         return {"error": "no episodes found"}
-    events = load_run_events(filename)
-    if not events:
+    summary = get_summary(filename)
+    if not summary:
         return {"error": f"no events in {filename}"}
-    summary = compute_summary(events)
     return {"file": filename, "twists": summary["twists"]}
 
 
@@ -195,7 +188,7 @@ def get_dialogue(
     filename = _resolve(run)
     if not filename:
         return {"error": "no episodes found"}
-    events = load_run_events(filename)
+    events = load_run_events(filename)  # cached; also need raw events for filtering
     if not events:
         return {"error": f"no events in {filename}"}
 
@@ -229,12 +222,9 @@ def compare_episodes() -> list[dict]:
     files = sorted(RUNS_DIR.glob("*.jsonl"), key=lambda f: f.stat().st_mtime)
     results = []
     for f in files:
-        from api.analytics import read_lines
-        events = read_lines(f)
-        if not events:
-            continue
-        summary = compute_summary(events)
-        results.append({"file": f.name, "final_brand": summary["final_brand"]})
+        summary = get_summary(f.name)
+        if summary:
+            results.append({"file": f.name, "final_brand": summary["final_brand"]})
     return results
 
 
@@ -248,12 +238,10 @@ def get_run_meta(run: str | None = None) -> dict:
     filename = _resolve(run)
     if not filename:
         return {"error": "no episodes found"}
-    events = load_run_events(filename)
-    if not events:
+    summary = get_summary(filename)
+    if not summary:
         return {"error": f"no events in {filename}"}
-    summary = compute_summary(events)
-    meta = summary.get("run_meta") or {}
-    return {"file": filename, "run_meta": meta}
+    return {"file": filename, "run_meta": summary.get("run_meta") or {}}
 
 
 # ---------------------------------------------------------------------------

@@ -4,17 +4,26 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import yaml
+
 BASE_DIR = Path(__file__).parent.parent
 RUNS_DIR = BASE_DIR / "runs"
+_PERSONALITIES_DIR = BASE_DIR / "engine" / "personalities"
 
-CAST_FIRST_NAMES: dict[str, str] = {
-    "Vivienne": "Vivienne Davenport",
-    "Cassandra": "Cassandra Cole",
-    "Bianca": "Bianca Noel",
-    "Diane": "Diane Wentworth",
-    "Petra": "Petra Voss",
-    "Madison": "Madison Fleur",
-}
+
+def _load_cast_first_names() -> dict[str, str]:
+    """Build {first_name: full_name} from personality YAML files."""
+    result = {}
+    for f in sorted(_PERSONALITIES_DIR.glob("*.yaml")):
+        with open(f) as fh:
+            card = yaml.safe_load(fh)
+        full = card["name"]
+        first = full.split()[0]
+        result[first] = full
+    return result
+
+
+CAST_FIRST_NAMES: dict[str, str] = _load_cast_first_names()
 
 _AGGRO_MARKERS = ["!", "never", "always", "excuse me", "frankly", "how dare"]
 
@@ -32,14 +41,38 @@ def read_lines(path: Path) -> list[dict]:
     return events
 
 
+_events_cache: dict[str, list[dict]] = {}
+_summary_cache: dict[str, dict] = {}
+
+
 def load_run_events(file: str) -> list[dict]:
-    """Load events from a run file. Returns [] on bad/missing path."""
+    """Load events from a run file. Returns [] on bad/missing path. Cached by filename."""
+    if file in _events_cache:
+        return _events_cache[file]
     if file.startswith("."):
         return []
     path = (RUNS_DIR / file).resolve()
     if path.parent != RUNS_DIR.resolve() or not path.exists():
         return []
-    return read_lines(path)
+    result = read_lines(path)
+    _events_cache[file] = result
+    return result
+
+
+def get_summary(file: str) -> dict | None:
+    """Load and summarize a run file. Both events and summary are cached by filename.
+
+    Episode JSONL files are immutable once written (new filename per run), so the
+    cache never goes stale. Returns None if the file is missing or empty.
+    """
+    if file in _summary_cache:
+        return _summary_cache[file]
+    events = load_run_events(file)
+    if not events:
+        return None
+    summary = compute_summary(events)
+    _summary_cache[file] = summary
+    return summary
 
 
 def latest_run() -> str | None:
@@ -65,6 +98,7 @@ def compute_summary(events: list[dict]) -> dict:
     event_counts: dict[str, int] = {}
     twists: list[dict] = []
     alliance_weights: dict[str, float] = {}
+    alliance_events: list[dict] = []
     behavior_buckets: dict[str, dict] = {
         "high": {"words": [], "aggro": []},
         "mid":  {"words": [], "aggro": []},
@@ -87,6 +121,9 @@ def compute_summary(events: list[dict]) -> dict:
             )
             if e["composure"] < 20 and first_breakdown.get(e["speaker"]) is None:
                 first_breakdown[e["speaker"]] = i
+
+        elif t in ("alliance_formed", "feud_declared"):
+            alliance_events.append({"a": e["a"], "b": e["b"], "kind": e["kind"]})
 
         elif t == "twist":
             twists.append({"idx": i, "event": e})
@@ -129,6 +166,7 @@ def compute_summary(events: list[dict]) -> dict:
         "event_counts": event_counts,
         "twists": twists,
         "alliance_weights": alliance_weights,
+        "alliance_events": alliance_events,
         "behavior_metrics": behavior_metrics,
         "run_meta": run_meta,
     }
