@@ -2,6 +2,18 @@
 
 ---
 
+## 2026-10-28 — Physical escalation, lobby, pre-dinner
+
+**What:** Free-form `DRAMA:` signal at end of turn (classified into `targeted`/`area`/`exit`/`scene` by keyword). Feud-aware prompt weighting — no active feud makes drama feel nearly off-limits; active feud at low composure makes it available. `exit` sets personality absent for 3 turns; if lobby already occupied, triggers private 2-person mini-loop (`lobby_talk` events, not in public context). Pre-dinner sub-group scene runs before main dinner with 2 selected personalities; results injected as private memory into their dinner prompts. Feed card line-break fix: action lines (`*throws wine*`) now render as separate paragraphs instead of running together.
+
+New files: `engine/drama.py`. Modified: `engine/run.py`, `api/analytics.py`, `web/src/hooks/useEpisode.jsx`, `web/src/components/EpisodeFeed.jsx`.
+
+CLI: `--no-drama` disables DRAMA: signal; `--no-pre-dinner` skips pre-dinner scene.
+
+**Why:** Engine was purely verbal — no physical escalation path existed. Real Housewives peaks in physical moments that create irreversible table dynamics. Free-form description (not a menu) means the model can invent within bounded mechanics — the engine classifies the action, not the model. Lobby creates private side channels visible to viewers but not the full table; pre-dinner creates pre-existing tension before anyone sits down, replicating the show's structure. Line-break fix needed because stage directions and speech were running together making action turns unreadable.
+
+---
+
 ## 2026-10-28
 
 Added rule to personality system prompt: "Keep your responses concise and dramatic. Avoid filler or repetition." The ladies were droning — long, meandering turns with no edge. The instruction sits in the RULES block so it applies every turn, not just when composure is low.

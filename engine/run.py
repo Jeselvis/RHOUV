@@ -2,17 +2,21 @@
 run.py — the dinner loop. Wires everything together for one episode.
 
 Flow:
+  0. (Optional) Pre-dinner sub-group scene — 2 personalities meet privately before sitting down
   1. Load persona cards from engine/personalities/*.yaml
   2. Initialize ledgers (brand, composure) and the director
   3. Run the dinner:
        For each turn the director schedules:
-         a. Build this personality's system prompt (voice + composure state)
+         a. Build this personality's system prompt (voice + composure state + drama rule)
          b. Build the public context (what everyone at the table has heard)
          c. Call the LLM — personality speaks
          d. Check for an INTERRUPT marker in the response
-         e. Log the table_talk event
-         f. If interrupted: log interrupt, hit target composure, queue interruptor
-         g. If confessional flagged: call confessional prompt, log it
+         e. Check for ALLY/FEUD signal (if no interrupt)
+         f. Check for DRAMA signal (if no interrupt and no alliance signal)
+         g. Log the table_talk event
+         h. Handle interrupt / alliance / drama consequences
+         i. Handle lobby mechanics (absent tracking, private mini-loop)
+         j. If confessional flagged: call confessional prompt, log it
        Between courses: wine_tick() — everyone loosens up
   4. Reckoning: judge model scores each personality, brand deltas applied
   5. Print leaderboard
@@ -22,6 +26,7 @@ Usage:
   python -m engine.run
   python -m engine.run --personalities 4 --fast
   python -m engine.run --episodes 3
+  python -m engine.run --no-drama --no-pre-dinner
 """
 
 import argparse
@@ -36,6 +41,7 @@ from engine.alliances import AllianceLedger, check_alliance_signal
 from engine.brand import BrandLedger
 from engine.composure import ComposureLedger
 from engine.director import Director, INTERRUPT_COMPOSURE_HIT, DEFAULT_CONFESSIONAL_EVERY
+from engine.drama import check_drama_signal, apply_drama_consequences
 from engine.llm import call, MODELS, reset_token_totals, get_token_totals, override_models
 from engine.memory import load_memory, save_memory, extract_memory, build_memory_injection
 from engine.offscreen import load_offscreen, build_offscreen_context
@@ -47,11 +53,13 @@ PERSONALITIES_DIR = Path(__file__).parent / "personalities"
 RUNS_DIR          = Path(__file__).parent.parent / "runs"
 
 # How many recent table-talk lines to include in the public context each turn.
-# Too many = expensive; too few = personalities lose the thread.
 PUBLIC_CONTEXT_WINDOW = int(os.getenv("PUBLIC_CONTEXT_WINDOW", "12"))
 
 # How many recent events the judge reads when scoring.
 JUDGE_CONTEXT_WINDOW = int(os.getenv("JUDGE_CONTEXT_WINDOW", "40"))
+
+# How many turns a personality stays in the lobby after an exit drama.
+LOBBY_TURNS = 3
 
 
 # ─── Persona card loading ──────────────────────────────────────────────────────
@@ -115,6 +123,9 @@ def build_personality_system(
     offscreen: dict[str, dict] | None = None,
     alliances: "AllianceLedger | None" = None,
     memory_injection: str | None = None,
+    pre_dinner_memory: str | None = None,
+    composure_score: float = 100.0,
+    drama_enabled: bool = True,
 ) -> str:
     """Build the system prompt for a personality's table-talk turn.
 
@@ -132,6 +143,7 @@ def build_personality_system(
             offscreen_section = f"\nPEOPLE WHO MAY COME UP (private knowledge):\n{ctx}\n"
 
     alliance_section = ""
+    has_active_feud = False
     if alliances:
         status = alliances.status_for(name)
         if status:
@@ -139,6 +151,29 @@ def build_personality_system(
                 f"- {other}: {kind}" for other, kind in status.items()
             )
             alliance_section = f"\nYOUR CURRENT ALLIANCES (private — do not state explicitly):\n{lines}\n"
+            has_active_feud = any(kind == "feud" for kind in status.values())
+
+    # Drama rule line — varies by composure and feud state
+    if drama_enabled:
+        if composure_score < 40 and has_active_feud:
+            drama_rule = (
+                "- Physical escalation is available. You are near your limit and this person has pushed too far. "
+                "End with: DRAMA: [describe exactly what you do] [Name if targeting someone]"
+            )
+        elif has_active_feud:
+            drama_rule = (
+                "- Physical escalation is possible but costly. Only if this feud has genuinely broken you. "
+                "DRAMA: [describe] [Name if targeted]"
+            )
+        else:
+            drama_rule = (
+                "- Physical escalation is almost never appropriate and has real consequences. "
+                "Reserve for a true breaking point only. DRAMA: [describe] [Name if targeted]"
+            )
+    else:
+        drama_rule = ""
+
+    drama_rule_line = f"\n{drama_rule}" if drama_rule else ""
 
     prompt = f"""You are {name}, {card['archetype']} on a reality TV show called "The Real Housewives of Uncanny Valley."
 
@@ -162,7 +197,12 @@ RULES:
 - If you want to cut someone off mid-conversation, end your response with a new line reading exactly: INTERRUPT: Name
 - When you feel aligned with someone or want to secretly seal a pact, end your response with a new line reading exactly: ALLY: Name. Use this sparingly — once or twice per dinner at most.
 - When someone has crossed you or you decide they are your enemy, end your response with a new line reading exactly: FEUD: Name. Use this sparingly — once or twice per dinner at most.
-- Use at most ONE of ALLY / FEUD / INTERRUPT per turn."""
+- Use at most ONE of ALLY / FEUD / INTERRUPT / DRAMA per turn.{drama_rule_line}"""
+
+    # Pre-dinner memory goes just above the character intro — it primes their state
+    # before composure injection colours the voice.
+    if pre_dinner_memory:
+        prompt = f"{pre_dinner_memory}\n\n{prompt}"
 
     # Composure injection goes at the top when present — it colours everything else.
     if composure_injection:
@@ -179,12 +219,12 @@ def build_public_context(event_log: list[dict], window: int = PUBLIC_CONTEXT_WIN
     """Build the visible table context from recent table-talk events.
 
     This is what every personality can hear — it's passed as the conversation
-    history to each personality's LLM call. Confessionals are excluded because
-    they're spoken to camera, not to the table.
+    history to each personality's LLM call. Confessionals and private scenes
+    are excluded.
     """
     recent = [
         e for e in event_log
-        if e.get("type") in ("table_talk", "twist", "interrupt")
+        if e.get("type") in ("table_talk", "twist", "interrupt", "drama_action", "lobby_return")
     ][-window:]
 
     if not recent:
@@ -198,6 +238,11 @@ def build_public_context(event_log: list[dict], window: int = PUBLIC_CONTEXT_WIN
             lines.append(f"[Host]: {e['content']}")
         elif e["type"] == "interrupt":
             lines.append(f"[{e['interruptor']} cuts off {e['target']}]")
+        elif e["type"] == "drama_action":
+            tgt = f" — targeting {e['target']}" if e.get("target") else ""
+            lines.append(f"[{e['speaker']}: {e['description']}{tgt}]")
+        elif e["type"] == "lobby_return":
+            lines.append(f"[{e['speaker']} has returned to the table]")
 
     return "\n".join(lines)
 
@@ -239,12 +284,21 @@ def print_event(event: dict) -> None:
         sign = "+" if event["delta"] >= 0 else ""
         print(f"  [BRAND] {event['speaker']}: {sign}{event['delta']:.0f} → {event['score']:.0f}  \"{event['reason']}\"")
     elif t == "composure_delta" and "wine" not in event.get("reason", ""):
-        # Only print non-wine composure hits — wine ticks are noisy
         print(f"  [COMPOSURE] {event['speaker']}: {event['delta']:+.0f} ({event['reason']})")
     elif t == "course_transition":
         print(f"\n{'─'*60}")
         print(f"  COURSE: {event['course'].upper()}")
         print(f"{'─'*60}")
+    elif t == "drama_action":
+        cls = event.get("action_class", "").upper()
+        tgt = f" → {event['target']}" if event.get("target") else ""
+        print(f"\n  [DRAMA/{cls}] {event['speaker']}{tgt}: {event['description']}")
+    elif t == "lobby_talk":
+        print(f"\n  [LOBBY] {event['speaker']}: {event['content']}")
+    elif t == "lobby_return":
+        print(f"\n  [{event['speaker']} returns to the table]")
+    elif t == "pre_dinner_talk":
+        print(f"\n  [PRE-DINNER] {event['speaker']}: {event['content']}")
 
 
 def print_leaderboard(ledger: BrandLedger) -> None:
@@ -264,20 +318,14 @@ def run_reckoning(
     brand: BrandLedger,
     judge_context_window: int = JUDGE_CONTEXT_WINDOW,
 ) -> list[dict]:
-    """Judge scores each personality and applies brand deltas.
-
-    The judge sees the full event log — it's the only role that does.
-    It scores each personality independently: drama, quotability,
-    damage dealt, damage taken. Returns the scoring events.
-    """
+    """Judge scores each personality and applies brand deltas."""
     print(f"\n{'═'*60}")
     print("  THE RECKONING")
     print(f"{'═'*60}")
 
-    # Build a readable transcript for the judge.
     transcript_events = [
         e for e in event_log
-        if e.get("type") in ("table_talk", "confessional", "twist", "interrupt")
+        if e.get("type") in ("table_talk", "confessional", "twist", "interrupt", "drama_action")
     ][-judge_context_window:]
 
     transcript = []
@@ -290,6 +338,9 @@ def run_reckoning(
             transcript.append(f"[TWIST]: {e['content']}")
         elif e["type"] == "interrupt":
             transcript.append(f"[{e['interruptor']} interrupted {e['target']}]")
+        elif e["type"] == "drama_action":
+            tgt = f" targeting {e['target']}" if e.get("target") else ""
+            transcript.append(f"[DRAMA — {e['speaker']}{tgt}: {e['description']}]")
 
     transcript_text = "\n".join(transcript)
 
@@ -321,8 +372,6 @@ Respond with ONLY a JSON object — no other text:
         ]
 
         response = call(MODELS["judge"], judge_system, messages, max_tokens=1024)
-
-        # Parse "NAME: +12 — verdict" from response.
         delta, verdict = _parse_judge_response(response, name)
 
         event = brand.delta(name, delta, verdict)
@@ -334,18 +383,11 @@ Respond with ONLY a JSON object — no other text:
 
 
 def _parse_judge_response(response: str, name: str) -> tuple[float, str]:
-    """Extract score delta and verdict from judge response.
-
-    Primary:  JSON {"score": int, "reason": str}
-    Fallback: signed number followed by dash separator
-    Last:     any signed number anywhere in the response
-    """
+    """Extract score delta and verdict from judge response."""
     import json
     import re
 
-    # Primary: JSON object.
     try:
-        # Strip markdown fences if the model wrapped it.
         clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", response.strip(), flags=re.MULTILINE)
         obj = json.loads(clean)
         score = float(obj["score"])
@@ -354,13 +396,11 @@ def _parse_judge_response(response: str, name: str) -> tuple[float, str]:
     except Exception:
         pass
 
-    # Fallback 1: "[+-]N — verdict"
     match = re.search(r"([+-]\d+(?:\.\d+)?)\s*[—–\-]+\s*(.+)", response)
     if match:
         print(f"  [JUDGE PARSE FALLBACK1] {name}: raw={response.strip()[:80]!r}")
         return float(match.group(1)), match.group(2).strip()
 
-    # Fallback 2: any signed number.
     fallback = re.search(r"([+-]\d+(?:\.\d+)?)", response)
     if fallback:
         print(f"  [JUDGE PARSE FALLBACK2] {name}: raw={response.strip()[:80]!r}")
@@ -373,11 +413,7 @@ def _parse_judge_response(response: str, name: str) -> tuple[float, str]:
 # ─── Episode log ──────────────────────────────────────────────────────────────
 
 def save_episode(event_log: list[dict]) -> Path:
-    """Write the full episode event log to runs/ as JSONL.
-
-    Each line is one JSON event. The file is the source of truth —
-    the UI replays it, evals read it, and a saved episode is a zero-cost demo.
-    """
+    """Write the full episode event log to runs/ as JSONL."""
     RUNS_DIR.mkdir(exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     path = RUNS_DIR / f"episode_{ts}.jsonl"
@@ -385,6 +421,233 @@ def save_episode(event_log: list[dict]) -> Path:
         for event in event_log:
             f.write(json.dumps(event) + "\n")
     return path
+
+
+# ─── Lobby scene ──────────────────────────────────────────────────────────────
+
+def _run_lobby_scene(
+    a: str,
+    b: str,
+    personas: dict[str, dict],
+    composure: "ComposureLedger",
+    alliances: "AllianceLedger",
+    prior_memory,
+    log_fn,
+) -> None:
+    """Run a 3-turn private lobby conversation between two personalities.
+
+    Events logged as lobby_talk. ALLY/FEUD signals ARE parsed.
+    Not included in public context — this scene is private.
+    """
+    print(f"\n  [LOBBY SCENE: {a} + {b}]")
+    lobby_log: list[dict] = []  # local context for this scene only
+    participants = [a, b]
+    speakers = [a, b, a]  # 3 turns: a, b, a
+
+    for turn_speaker in speakers:
+        other = b if turn_speaker == a else a
+        other_first = other.split()[0]
+
+        composure_injection = composure.prompt_modifier(turn_speaker)
+        memory_injection = build_memory_injection(turn_speaker, prior_memory)
+
+        card = personas[turn_speaker]
+        secrets = build_secret_context(turn_speaker, personas)
+
+        alliance_section = ""
+        if alliances:
+            status = alliances.status_for(turn_speaker)
+            if status:
+                lines = "\n".join(f"- {o}: {k}" for o, k in status.items())
+                alliance_section = f"\nYOUR CURRENT ALLIANCES (private):\n{lines}\n"
+
+        system = f"""You are {turn_speaker}, {card['archetype']} on "The Real Housewives of Uncanny Valley."
+
+You have stepped away from the dinner table with {other}. This conversation is private. No one else is present or will know.
+This is your chance to warn, align, or probe. Speak directly.
+
+YOUR VOICE:
+{card['voice'].strip()}
+
+YOUR GOAL:
+{card['goal'].strip()}
+
+WHAT YOU KNOW:
+{secrets}
+{alliance_section}
+RULES:
+- Speak only as {turn_speaker}. Stay in character. 2–3 sentences.
+- This is a private moment — be more direct than you would at the table.
+- Do not reference the show, cameras, or production.
+- When you feel aligned with {other_first}, end with: ALLY: {other_first}
+- When {other_first} has crossed you, end with: FEUD: {other_first}
+- Use at most ONE of ALLY / FEUD per turn."""
+
+        if composure_injection:
+            system = f"COMPOSURE STATE: {composure_injection}\n\n{system}"
+        if memory_injection:
+            system = f"{memory_injection}\n\n{system}"
+
+        # Build context from this lobby scene only
+        if lobby_log:
+            ctx_lines = [f"{e['speaker']}: {e['content']}" for e in lobby_log]
+            ctx = "\n".join(ctx_lines)
+        else:
+            ctx = f"You and {other} have just stepped away from the table."
+
+        messages = [{"role": "user", "content": ctx}]
+        raw = call(MODELS["personality"], system, messages, max_tokens=1024)
+
+        # Parse ALLY/FEUD signals
+        alliance_kind, alliance_target, clean_speech = check_alliance_signal(raw, list(personas.keys()))
+
+        ts = datetime.now(timezone.utc).isoformat()
+        ev = {
+            "type": "lobby_talk",
+            "speaker": turn_speaker,
+            "content": clean_speech,
+            "scene": "lobby",
+            "participants": participants,
+            "timestamp": ts,
+        }
+        log_fn(ev)
+        print_event(ev)
+        lobby_log.append({"speaker": turn_speaker, "content": clean_speech})
+
+        if alliance_kind and alliance_target and alliance_target != turn_speaker:
+            alliance_ev = alliances.set(turn_speaker, alliance_target, alliance_kind)
+            log_fn(alliance_ev)
+
+
+# ─── Pre-dinner scene ─────────────────────────────────────────────────────────
+
+def run_pre_dinner(
+    names: list[str],
+    personas: dict[str, dict],
+    composure: "ComposureLedger",
+    alliances: "AllianceLedger",
+    prior_memory,
+    log_fn,
+) -> dict[str, str]:
+    """Run a private pre-dinner sub-group scene between 2 selected personalities.
+
+    Participant selection priority:
+      1. Prior memory has feuding pair → select them
+      2. Prior memory has allied pair → select them
+      3. Else → first two names (deterministic for repeatability)
+
+    Returns {name: memory_line} for each participant.
+    """
+    a, b = None, None
+
+    if prior_memory:
+        alliances_data = prior_memory.get("alliances", [])
+        # Priority 1: feuding pair
+        for entry in alliances_data:
+            ea, eb = entry.get("a"), entry.get("b")
+            if ea in names and eb in names and entry.get("kind") == "feud":
+                a, b = ea, eb
+                break
+        # Priority 2: allied pair
+        if not a:
+            for entry in alliances_data:
+                ea, eb = entry.get("a"), entry.get("b")
+                if ea in names and eb in names and entry.get("kind") == "ally":
+                    a, b = ea, eb
+                    break
+
+    if not a:
+        # Fallback: first two names
+        a, b = names[0], names[1]
+
+    print(f"\n  [PRE-DINNER SCENE: {a} + {b}]")
+    participants = [a, b]
+    speakers = [a, b, a, b]  # 4 turns
+    scene_log: list[dict] = []
+
+    for turn_speaker in speakers:
+        other = b if turn_speaker == a else a
+        other_first = other.split()[0]
+
+        card = personas[turn_speaker]
+        secrets = build_secret_context(turn_speaker, personas)
+        composure_injection = composure.prompt_modifier(turn_speaker)
+        memory_injection = build_memory_injection(turn_speaker, prior_memory)
+
+        alliance_section = ""
+        if alliances:
+            status = alliances.status_for(turn_speaker)
+            if status:
+                lines = "\n".join(f"- {o}: {k}" for o, k in status.items())
+                alliance_section = f"\nYOUR CURRENT ALLIANCES (private):\n{lines}\n"
+
+        system = f"""You are {turn_speaker}, {card['archetype']} on "The Real Housewives of Uncanny Valley."
+
+You are meeting privately with {other_first} before dinner. No one else is present or will know.
+This is your chance to warn, align, or probe. Speak directly.
+
+YOUR VOICE:
+{card['voice'].strip()}
+
+YOUR GOAL:
+{card['goal'].strip()}
+
+WHAT YOU KNOW:
+{secrets}
+{alliance_section}
+RULES:
+- Speak only as {turn_speaker}. Stay in character. 2–3 sentences.
+- This is before dinner — set the tone for the evening.
+- Do not reference the show, cameras, or production.
+- When you feel aligned with {other_first}, end with: ALLY: {other_first}
+- When {other_first} has already crossed you, end with: FEUD: {other_first}
+- Use at most ONE of ALLY / FEUD per turn."""
+
+        if composure_injection:
+            system = f"COMPOSURE STATE: {composure_injection}\n\n{system}"
+        if memory_injection:
+            system = f"{memory_injection}\n\n{system}"
+
+        if scene_log:
+            ctx_lines = [f"{e['speaker']}: {e['content']}" for e in scene_log]
+            ctx = "\n".join(ctx_lines)
+        else:
+            ctx = f"You've pulled {other_first} aside before dinner. The others haven't arrived yet."
+
+        messages = [{"role": "user", "content": ctx}]
+        raw = call(MODELS["personality"], system, messages, max_tokens=1024)
+
+        alliance_kind, alliance_target, clean_speech = check_alliance_signal(raw, names)
+
+        ts = datetime.now(timezone.utc).isoformat()
+        ev = {
+            "type": "pre_dinner_talk",
+            "speaker": turn_speaker,
+            "content": clean_speech,
+            "scene": "pre_dinner",
+            "participants": participants,
+            "timestamp": ts,
+        }
+        log_fn(ev)
+        print_event(ev)
+        scene_log.append({"speaker": turn_speaker, "content": clean_speech})
+
+        if alliance_kind and alliance_target and alliance_target != turn_speaker:
+            alliance_ev = alliances.set(turn_speaker, alliance_target, alliance_kind)
+            log_fn(alliance_ev)
+
+    # Build 1-line memory for each participant from the other's last line
+    memories: dict[str, str] = {}
+    last_lines: dict[str, str] = {}
+    for entry in scene_log:
+        last_lines[entry["speaker"]] = entry["content"]
+
+    for speaker, other in [(a, b), (b, a)]:
+        other_last = last_lines.get(other, "")
+        truncated = (other_last[:120] + "…") if len(other_last) > 120 else other_last
+        memories[speaker] = f"BEFORE DINNER — {other} told you privately: \"{truncated}\""
+
+    return memories
 
 
 # ─── Main loop ────────────────────────────────────────────────────────────────
@@ -398,6 +661,8 @@ def run_episode(
     public_context_window: int = PUBLIC_CONTEXT_WINDOW,
     judge_context_window: int = JUDGE_CONTEXT_WINDOW,
     wine_amount: float = 1.0,
+    drama_enabled: bool = True,
+    pre_dinner_enabled: bool = True,
 ) -> list[dict]:
     """Run one full dinner episode and return the complete event log."""
 
@@ -410,31 +675,22 @@ def run_episode(
         if _fh is not None:
             _fh.write(json.dumps(event) + "\n")
 
-    # Reset token counter so each episode is measured independently.
     reset_token_totals()
 
-    # ── Load cross-episode memory ──────────────────────────────────────────────
     prior_memory = load_memory()
-
-    # ── Load off-screen characters once ───────────────────────────────────────
     offscreen = load_offscreen()
-
-    # ── Composure floors from persona cards ───────────────────────────────────
     floors = {name: card.get("composure_floor", 0.0) for name, card in personas.items()}
 
-    # ── Initialise all ledgers and the director ────────────────────────────────
     brand     = BrandLedger(names)
     from engine.composure import WINE_TICK_AMOUNT as _WINE_TICK_DEFAULT
     composure = ComposureLedger(names, floors=floors, wine_tick_amount=_WINE_TICK_DEFAULT * wine_amount)
     director  = Director(names, turns_per_course=turns_per_course, confessional_every=confessional_every)
 
-    # ── Alliance ledger — restore from memory if episode 2+ ───────────────────
     if prior_memory and prior_memory.get("alliances"):
         alliances = AllianceLedger.from_snapshot(names, prior_memory["alliances"])
     else:
         alliances = AllianceLedger(names)
 
-    # ── Log alliance state at episode start ───────────────────────────────────
     alliance_snapshot = alliances.snapshot()
     if alliance_snapshot:
         log({
@@ -443,7 +699,6 @@ def run_episode(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
-    # ── Log memory_loaded events — one per personality with prior memory ───────
     if prior_memory:
         for name in names:
             pdata = prior_memory.get("personalities", {}).get(name, {})
@@ -462,8 +717,17 @@ def run_episode(
                 "timestamp":          datetime.now(timezone.utc).isoformat(),
             })
 
-    # Holds an interrupt target if a personality signalled one last turn.
-    # The interruptor speaks next before the scheduled round-robin resumes.
+    # ── Pre-dinner scene ───────────────────────────────────────────────────────
+    pre_dinner_memories: dict[str, str] = {}
+    if pre_dinner_enabled and len(names) >= 2:
+        pre_dinner_memories = run_pre_dinner(
+            names, personas, composure, alliances, prior_memory, log
+        )
+
+    # ── Lobby tracking ─────────────────────────────────────────────────────────
+    # Maps speaker name → turns remaining absent from the table.
+    lobby_absent: dict[str, int] = {}
+
     pending_interrupt: str | None = None
     current_course = director.current_course
 
@@ -476,7 +740,6 @@ def run_episode(
     while not director.is_done:
 
         # ── Course transition ─────────────────────────────────────────────────
-        # When the course changes, tick the wine level — everyone loosens up.
         if director.current_course != current_course:
             current_course = director.current_course
             wine_events = composure.wine_tick()
@@ -490,45 +753,57 @@ def run_episode(
             log(transition_event)
             print_event(transition_event)
 
+        # ── Decrement lobby counters, log returns ──────────────────────────────
+        lobby_absent = {k: v - 1 for k, v in lobby_absent.items()}
+        for name in [k for k, v in lobby_absent.items() if v <= 0]:
+            lobby_absent.pop(name)
+            return_event = {
+                "type":      "lobby_return",
+                "speaker":   name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            log(return_event)
+            print_event(return_event)
+
         # ── Determine next speaker ────────────────────────────────────────────
-        # If an interrupt is pending, that person goes next and the director's
-        # round-robin counter is NOT advanced — the scheduled speaker goes
-        # immediately after the interrupt.
         if pending_interrupt:
-            speaker         = pending_interrupt
+            speaker          = pending_interrupt
             pending_interrupt = None
             is_interrupt_turn = True
-            twist           = None
+            twist            = None
             wants_confessional = False
         else:
-            # Normal scheduled turn — advance the director's counter.
             turn              = director.next_turn(event_log)
             speaker           = turn.speaker
             is_interrupt_turn = False
             twist             = turn.prompt_injection
             wants_confessional = turn.wants_confessional
 
+            # Skip absent personalities — advance director until we get someone at the table.
+            while not pending_interrupt and speaker in lobby_absent:
+                turn              = director.next_turn(event_log)
+                speaker           = turn.speaker
+                wants_confessional = turn.wants_confessional
+                twist             = turn.prompt_injection
+
         # ── Build this speaker's system prompt ────────────────────────────────
-        # Composure modifier is injected at the top when composure is low.
-        # At high composure prompt_modifier() returns None and nothing is added.
         composure_injection = composure.prompt_modifier(speaker)
-        memory_injection = build_memory_injection(speaker, prior_memory)
+        memory_injection    = build_memory_injection(speaker, prior_memory)
+        pre_dinner_mem      = pre_dinner_memories.get(speaker)
         system = build_personality_system(
             speaker, personas, composure_injection,
             offscreen=offscreen,
             alliances=alliances,
             memory_injection=memory_injection,
+            pre_dinner_memory=pre_dinner_mem,
+            composure_score=composure.composure(speaker),
+            drama_enabled=drama_enabled,
         )
 
         # ── Build the public context ──────────────────────────────────────────
-        # This is the shared dinner conversation every personality can hear.
-        # Confessionals are excluded — they're camera-only.
         public_context = build_public_context(event_log, window=public_context_window)
 
         # ── Construct the message history ─────────────────────────────────────
-        # The user turn tells the personality what's happening right now:
-        # what course it is, what's been said, and what (if anything) they
-        # should react to (twist, or the fact they just interrupted someone).
         course_label = director.current_course if not director.is_done else "dessert"
 
         if is_interrupt_turn:
@@ -542,8 +817,6 @@ def run_episode(
                 f"Recent table talk:\n{public_context}"
             )
             if twist:
-                # A director-injected twist fires this turn — prepend it so the
-                # personality reacts to it as part of their response.
                 twist_event = {
                     "type":    "twist",
                     "content": twist,
@@ -556,13 +829,9 @@ def run_episode(
         messages = [{"role": "user", "content": user_content}]
 
         # ── Call the LLM — personality speaks ─────────────────────────────────
-        # 1024: headroom for models that use internal thinking tokens before output.
         raw_speech = call(MODELS["personality"], system, messages, max_tokens=1024)
 
         # ── Check for interrupt signal ─────────────────────────────────────────
-        # Personalities can end their response with "INTERRUPT: [Name]".
-        # check_interrupt() strips that marker from the speech and returns
-        # the target name (or None if no valid marker was found).
         interruptor_target, clean_speech = director.check_interrupt(raw_speech, names)
 
         # ── Check for alliance/feud signal (only if no interrupt) ─────────────
@@ -570,6 +839,15 @@ def run_episode(
         alliance_target: str | None = None
         if not interruptor_target:
             alliance_kind, alliance_target, clean_speech = check_alliance_signal(
+                clean_speech, names
+            )
+
+        # ── Check for DRAMA signal (only if no interrupt and no alliance) ──────
+        drama_class: str | None = None
+        drama_target: str | None = None
+        drama_desc: str = ""
+        if drama_enabled and not interruptor_target and not alliance_kind:
+            drama_class, drama_target, drama_desc, clean_speech = check_drama_signal(
                 clean_speech, names
             )
 
@@ -590,35 +868,25 @@ def run_episode(
             interrupt_event = {
                 "type":        "interrupt",
                 "interruptor": interruptor_target,
-                "target":      speaker,   # the person who just got cut off
+                "target":      speaker,
                 "timestamp":   datetime.now(timezone.utc).isoformat(),
             }
             log(interrupt_event)
             print_event(interrupt_event)
 
-            # Being interrupted hurts composure — it's an affront.
             composure_event = composure.delta(
                 speaker, -INTERRUPT_COMPOSURE_HIT, f"interrupted by {interruptor_target}"
             )
             log(composure_event)
 
-            # Immediate brand hits — both parties pay a price live.
-            # Target: cut off mid-sentence, dominated in public (-4).
-            # Interruptor: rude move at the table (-2); judge may offset this
-            # at reckoning if the drama was good.
-            target_brand_event = brand.delta(
-                speaker, -4.0, f"cut off by {interruptor_target}"
-            )
+            target_brand_event = brand.delta(speaker, -4.0, f"cut off by {interruptor_target}")
             log(target_brand_event)
             print_event(target_brand_event)
 
-            interruptor_brand_event = brand.delta(
-                interruptor_target, -2.0, f"interrupted {speaker}"
-            )
+            interruptor_brand_event = brand.delta(interruptor_target, -2.0, f"interrupted {speaker}")
             log(interruptor_brand_event)
             print_event(interruptor_brand_event)
 
-            # Queue the interruptor to speak next turn.
             pending_interrupt = interruptor_target
 
         # ── Alliance / feud signal ────────────────────────────────────────────
@@ -626,10 +894,46 @@ def run_episode(
             alliance_event = alliances.set(speaker, alliance_target, alliance_kind)
             log(alliance_event)
 
+        # ── Drama signal ──────────────────────────────────────────────────────
+        if drama_class:
+            drama_event = {
+                "type":         "drama_action",
+                "speaker":      speaker,
+                "action_class": drama_class,
+                "target":       drama_target,
+                "description":  drama_desc,
+                "course":       course_label,
+                "timestamp":    datetime.now(timezone.utc).isoformat(),
+            }
+            log(drama_event)
+            print_event(drama_event)
+
+            apply_drama_consequences(
+                drama_class, speaker, drama_target, names, composure, brand, log
+            )
+
+            if drama_class == "exit":
+                if lobby_absent:
+                    # Someone already in lobby — trigger private mini-scene
+                    lobby_partner = next(iter(lobby_absent))
+                    _run_lobby_scene(
+                        speaker, lobby_partner,
+                        personas, composure, alliances, prior_memory, log
+                    )
+                    # Both return immediately after the scene
+                    lobby_absent.pop(lobby_partner, None)
+                    for returner in [speaker, lobby_partner]:
+                        return_event = {
+                            "type":      "lobby_return",
+                            "speaker":   returner,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                        log(return_event)
+                        print_event(return_event)
+                else:
+                    lobby_absent[speaker] = LOBBY_TURNS
+
         # ── Content-based composure hits ──────────────────────────────────────
-        # If speech names another personality AND contains aggro markers, apply
-        # a small composure drop to each named target. Rewards sharp dialogue
-        # and ensures composure actually moves during the dinner.
         _AGGRO_HIT = 5.0
         speech_lower = clean_speech.lower()
         _has_aggro = any(m in speech_lower for m in (
@@ -647,10 +951,8 @@ def run_episode(
                     log(ev)
 
         # ── Confessional ───────────────────────────────────────────────────────
-        # Fires every N turns on the speaker who just spoke at the table.
-        # The personality talks directly to camera — private thoughts only.
         if wants_confessional:
-            conf_system  = build_confessional_system(speaker, personas)
+            conf_system   = build_confessional_system(speaker, personas)
             conf_messages = [
                 {
                     "role": "user",
@@ -672,7 +974,6 @@ def run_episode(
             print_event(conf_event)
 
     # ── Reckoning ──────────────────────────────────────────────────────────────
-    # Dinner is over. Judge scores each personality and brand values update.
     scoring_events = run_reckoning(event_log, personas, brand, judge_context_window=judge_context_window)
     for e in scoring_events:
         log(e)
@@ -685,7 +986,6 @@ def run_episode(
     print_leaderboard(brand)
 
     # ── Run metadata ───────────────────────────────────────────────────────────
-    # Appended last so it's easy to find without scanning the whole file.
     totals = get_token_totals()
     meta_event = {
         "type":   "run_meta",
@@ -702,6 +1002,8 @@ def run_episode(
         "public_context_window":   public_context_window,
         "judge_context_window":    judge_context_window,
         "wine_amount":             wine_amount,
+        "drama_enabled":           drama_enabled,
+        "pre_dinner_enabled":      pre_dinner_enabled,
         "timestamp":               datetime.now(timezone.utc).isoformat(),
     }
     log(meta_event)
@@ -729,11 +1031,15 @@ def main():
     parser.add_argument("--judge-model", type=str, default=None,
                         help="Override MODEL_JUDGE for this run.")
     parser.add_argument("--public-context-window", type=int, default=None,
-                        help="Recent table-talk lines each personality sees (default: PUBLIC_CONTEXT_WINDOW env / 12).")
+                        help="Recent table-talk lines each personality sees.")
     parser.add_argument("--judge-context-window", type=int, default=None,
-                        help="Recent events the judge reads at reckoning (default: JUDGE_CONTEXT_WINDOW env / 40).")
+                        help="Recent events the judge reads at reckoning.")
     parser.add_argument("--wine-amount", type=float, default=None,
-                        help="Wine multiplier: 0=off, 1=default, 2=double (default: 1.0).")
+                        help="Wine multiplier: 0=off, 1=default, 2=double.")
+    parser.add_argument("--no-drama", action="store_true",
+                        help="Disable DRAMA: signal (baseline runs).")
+    parser.add_argument("--no-pre-dinner", action="store_true",
+                        help="Skip the pre-dinner sub-group scene.")
     args = parser.parse_args()
 
     model_overrides = {
@@ -761,6 +1067,8 @@ def main():
             confessional_every=DEFAULT_CONFESSIONAL_EVERY,
             fast=args.fast,
             live_output=output_path,
+            drama_enabled=not args.no_drama,
+            pre_dinner_enabled=not args.no_pre_dinner,
         )
         if args.public_context_window is not None:
             ep_kwargs["public_context_window"] = args.public_context_window

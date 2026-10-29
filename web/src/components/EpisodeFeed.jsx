@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useEpisode } from '../hooks/useEpisode'
 import { avatarStyle, courseLabel } from '../castConfig'
 
@@ -169,7 +169,9 @@ function TalkRow({ event, wasCutOff, onInfoClick }) {
               textWrap: 'pretty',
             }}
           >
-            {event.content}
+            {event.content.split('\n').filter(Boolean).map((line, i) => (
+              <p key={i} style={{ margin: '0 0 6px 0' }}>{line}</p>
+            ))}
             {wasCutOff && (
               <span style={{ color: '#a3262b', fontWeight: 700, marginLeft: 3 }}>—</span>
             )}
@@ -260,7 +262,9 @@ function ConfessionalRow({ event }) {
               textWrap: 'pretty',
             }}
           >
-            {event.content}
+            {event.content.split('\n').filter(Boolean).map((line, i) => (
+              <p key={i} style={{ margin: '0 0 6px 0' }}>{line}</p>
+            ))}
           </div>
         ) : (
           <div style={{ fontSize: 14, color: 'var(--sapphire)', opacity: 0.5, fontStyle: 'italic' }}>
@@ -405,10 +409,254 @@ function CourseDivider({ event }) {
   )
 }
 
+const DRAMA_CLASS_LABELS = {
+  targeted: 'TARGETED',
+  area:     'AREA / FLIP',
+  exit:     'EXIT',
+  scene:    'SCENE',
+}
+
+const DRAMA_CLASS_COLORS = {
+  targeted: '#a3262b',
+  area:     '#8b3a00',
+  exit:     '#6b5200',
+  scene:    '#5a3a6b',
+}
+
+function DramaRow({ event }) {
+  const cls = event.action_class ?? 'scene'
+  const label = DRAMA_CLASS_LABELS[cls] ?? cls.toUpperCase()
+  const color = DRAMA_CLASS_COLORS[cls] ?? '#a3262b'
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '40px minmax(0,1fr) auto',
+        gap: 12,
+        alignItems: 'start',
+        borderLeft: `3px solid ${color}`,
+        paddingLeft: 10,
+      }}
+    >
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          border: `2px solid ${color}`,
+          flexShrink: 0,
+          ...avatarStyle(event.speaker, 40),
+        }}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '.16em',
+              textTransform: 'uppercase',
+              color: '#fff',
+              background: color,
+              padding: '2px 6px',
+              borderRadius: 2,
+              flexShrink: 0,
+            }}
+          >
+            {label}
+          </span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>
+            {event.speaker?.split(' ')[0]}
+          </span>
+          {event.target && (
+            <>
+              <span style={{ fontSize: 12, color: 'var(--ink-muted)' }}>→</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: color }}>
+                {event.target?.split(' ')[0]}
+              </span>
+            </>
+          )}
+        </div>
+        <div style={{ fontSize: 14, fontStyle: 'italic', color: 'var(--ink)', lineHeight: 1.4 }}>
+          {event.description}
+        </div>
+      </div>
+      <div
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11,
+          color: 'var(--ink-timestamp)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {new Date(event.timestamp).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Groups consecutive pre_dinner / lobby events with matching participants into
+// a single { feedType: 'private_scene_group', sceneType, items } object so
+// they render as one card with a single header instead of stacked repetitions.
+function groupFeed(feed) {
+  const out = []
+  let i = 0
+  while (i < feed.length) {
+    const item = feed[i]
+    if (item.feedType === 'pre_dinner' || item.feedType === 'lobby') {
+      const sceneType = item.feedType
+      const pKey = JSON.stringify((item.participants ?? []).slice().sort())
+      const group = [item]
+      let j = i + 1
+      while (
+        j < feed.length &&
+        feed[j].feedType === sceneType &&
+        JSON.stringify((feed[j].participants ?? []).slice().sort()) === pKey
+      ) {
+        group.push(feed[j])
+        j++
+      }
+      out.push({ feedType: 'private_scene_group', sceneType, items: group })
+      i = j
+    } else {
+      out.push(item)
+      i++
+    }
+  }
+  return out
+}
+
+function PrivateSceneGroup({ group }) {
+  const { sceneType, items } = group
+  const isPreDinner = sceneType === 'pre_dinner'
+  const headerLabel = isPreDinner ? 'Before Dinner' : 'Lobby'
+  const first = items[0] ?? {}
+  const participants = Array.isArray(first.participants)
+    ? first.participants.map((n) => n.split(' ')[0]).join(' + ')
+    : ''
+  return (
+    <div
+      style={{
+        borderRadius: 6,
+        border: '1px solid #b9cddb',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Scene header */}
+      <div
+        style={{
+          background: '#c8dbe8',
+          padding: '7px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '.18em',
+            textTransform: 'uppercase',
+            color: 'var(--sapphire)',
+          }}
+        >
+          {headerLabel}
+        </span>
+        <span
+          style={{
+            fontSize: 10,
+            letterSpacing: '.06em',
+            color: '#2a43a6',
+            opacity: 0.7,
+          }}
+        >
+          — private
+        </span>
+        {participants && (
+          <span
+            style={{
+              marginLeft: 'auto',
+              fontSize: 11,
+              fontWeight: 600,
+              color: '#1b2330',
+              opacity: 0.6,
+            }}
+          >
+            {participants}
+          </span>
+        )}
+      </div>
+
+      {/* Lines */}
+      <div
+        style={{
+          background: '#dfeaf2',
+          padding: '10px 14px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}
+      >
+        {items.map((e, i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'var(--sapphire)',
+                letterSpacing: '.04em',
+              }}
+            >
+              {e.speaker?.split(' ')[0]}
+            </span>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--ink)',
+                lineHeight: 1.5,
+              }}
+            >
+              {(e.content ?? '').split('\n').filter(Boolean).map((line, li) => (
+                <p key={li} style={{ margin: '0 0 4px 0' }}>{line}</p>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LobbyReturnRow({ event }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '4px 0',
+        color: '#4a6080',
+        fontSize: 12,
+        fontStyle: 'italic',
+      }}
+    >
+      <div style={{ flex: 1, height: 1, background: '#b9cddb' }} />
+      <span>{event.speaker?.split(' ')[0]} returns to the table</span>
+      <div style={{ flex: 1, height: 1, background: '#b9cddb' }} />
+    </div>
+  )
+}
+
 export default function EpisodeFeed() {
   const { feed, personas } = useEpisode()
   const scrollRef = useRef(null)
   const [activePersonaName, setActivePersonaName] = useState(null)
+  const groupedFeed = useMemo(() => groupFeed(feed), [feed])
 
   const activePersona = personas.find((p) => p.name === activePersonaName) ?? null
 
@@ -488,20 +736,23 @@ export default function EpisodeFeed() {
             Press play to begin
           </div>
         )}
-        {feed.map((e, i) => {
+        {groupedFeed.map((e, i) => {
           switch (e.feedType) {
             case 'talk': {
-              const next = feed[i + 1]
+              const next = groupedFeed[i + 1]
               const wasCutOff =
                 next?.feedType === 'interrupt' &&
                 (next.target ?? next.interrupted) === e.speaker
               return <TalkRow key={i} event={e} wasCutOff={wasCutOff} onInfoClick={handleInfoClick} />
             }
-            case 'confessional': return <ConfessionalRow key={i} event={e} />
-            case 'interrupt':   return <InterruptRow   key={i} event={e} />
-            case 'twist':       return <TwistBanner    key={i} event={e} />
-            case 'course':      return <CourseDivider  key={i} event={e} />
-            default:            return null
+            case 'confessional':        return <ConfessionalRow   key={i} event={e} />
+            case 'interrupt':           return <InterruptRow      key={i} event={e} />
+            case 'twist':               return <TwistBanner       key={i} event={e} />
+            case 'course':              return <CourseDivider     key={i} event={e} />
+            case 'drama':               return <DramaRow          key={i} event={e} />
+            case 'private_scene_group': return <PrivateSceneGroup key={i} group={e} />
+            case 'lobby_return':        return <LobbyReturnRow    key={i} event={e} />
+            default:                    return null
           }
         })}
       </div>

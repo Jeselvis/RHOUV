@@ -304,6 +304,127 @@ function drawComposureTrajectory(svg, data, W, H) {
   }
 }
 
+// Line chart: how each personality's composure evolves over the dinner's statement sequence.
+// X = statement number (1…N total table_talk turns), Y = composure at that moment.
+// Multiple runs overlay: older runs faint, latest run bold. One line per personality per run.
+// Right-side band labels give composure state context.
+function drawComposureArc(svg, data, W, H) {
+  const el = d3.select(svg)
+  el.selectAll('*').remove()
+  if (!data.length) return
+
+  const names = data[0]?.activeNames ?? CAST_ORDER
+  const PAD = { top: 10, right: 56, bottom: 50, left: 28 }
+  const iW = W - PAD.left - PAD.right
+  const iH = H - PAD.top - PAD.bottom
+
+  const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
+
+  // Find the longest dinner across all runs (max statement count)
+  let maxStmt = 1
+  for (const run of data) {
+    for (const name of names) {
+      const series = run.composure_timeline?.[name] ?? []
+      if (series.length) maxStmt = Math.max(maxStmt, series[series.length - 1].stmt)
+    }
+  }
+
+  const xScale = d3.scaleLinear([1, maxStmt], [0, iW])
+  const yScale = d3.scaleLinear([0, 100], [iH, 0])
+
+  // Threshold bands + right-side labels
+  const bands = [
+    { y1: 70, y2: 100, color: 'rgba(42,67,166,.06)',  label: 'normal'    },
+    { y1: 45, y2: 70,  color: 'rgba(180,138,53,.09)', label: 'irritated' },
+    { y1: 20, y2: 45,  color: 'rgba(204,110,50,.11)', label: 'slipping'  },
+    { y1: 0,  y2: 20,  color: 'rgba(178,50,50,.11)',  label: 'gone'      },
+  ]
+  for (const b of bands) {
+    g.append('rect')
+      .attr('x', 0).attr('y', yScale(b.y2))
+      .attr('width', iW).attr('height', yScale(b.y1) - yScale(b.y2))
+      .attr('fill', b.color)
+    g.append('text')
+      .attr('x', iW + 4).attr('y', yScale((b.y1 + b.y2) / 2) + 4)
+      .attr('font-size', 9).attr('fill', '#778899').text(b.label)
+  }
+
+  // Y gridlines + ticks
+  for (const tick of [0, 25, 50, 75, 100]) {
+    g.append('line')
+      .attr('x1', 0).attr('x2', iW)
+      .attr('y1', yScale(tick)).attr('y2', yScale(tick))
+      .attr('stroke', 'rgba(61,74,90,.12)').attr('stroke-width', 1)
+    g.append('text')
+      .attr('x', -4).attr('y', yScale(tick) + 4)
+      .attr('text-anchor', 'end').attr('font-size', 9).attr('fill', '#778899')
+      .text(tick)
+  }
+
+  // X ticks — dinner statement position
+  const xTicks = d3.ticks(1, maxStmt, Math.min(maxStmt - 1, 6))
+  for (const t of xTicks) {
+    g.append('line')
+      .attr('x1', xScale(t)).attr('x2', xScale(t))
+      .attr('y1', iH).attr('y2', iH + 4)
+      .attr('stroke', 'rgba(61,74,90,.3)').attr('stroke-width', 1)
+    g.append('text')
+      .attr('x', xScale(t)).attr('y', iH + 13)
+      .attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', '#778899')
+      .text(t)
+  }
+  g.append('text')
+    .attr('x', iW / 2).attr('y', iH + 24)
+    .attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', '#556173')
+    .text('dinner statement #')
+  g.append('text')
+    .attr('transform', `translate(-20,${iH / 2}) rotate(-90)`)
+    .attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', '#556173')
+    .text('composure')
+
+  // Draw lines: older runs at low opacity, latest run bold
+  const lineGen = d3.line()
+    .x((d) => xScale(d.stmt))
+    .y((d) => yScale(d.value))
+    .curve(d3.curveCatmullRom.alpha(0.5))
+
+  for (let ri = 0; ri < data.length; ri++) {
+    const run = data[ri]
+    const isLatest = ri === data.length - 1
+    const baseOpacity = data.length === 1 ? 0.85 : (isLatest ? 0.80 : 0.18)
+    const strokeW = isLatest ? 1.8 : 1
+
+    for (const name of names) {
+      const series = run.composure_timeline?.[name] ?? []
+      if (!series.length) continue
+      g.append('path').datum(series)
+        .attr('fill', 'none')
+        .attr('stroke', personaColor(name))
+        .attr('stroke-width', strokeW)
+        .attr('opacity', baseOpacity)
+        .attr('d', lineGen)
+    }
+  }
+
+  // Legend: first names, 2 rows × 3 cols
+  const cols = Math.min(names.length, 3)
+  const step = iW / cols
+  names.forEach((name, i) => {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    const lx = step * col + step / 2
+    const ly = iH + 35 + row * 13
+    g.append('line')
+      .attr('x1', lx - 18).attr('x2', lx - 10)
+      .attr('y1', ly - 1).attr('y2', ly - 1)
+      .attr('stroke', personaColor(name)).attr('stroke-width', 2)
+    g.append('text')
+      .attr('x', lx - 7).attr('y', ly + 3)
+      .attr('font-size', 9).attr('fill', personaColor(name)).attr('font-weight', 600)
+      .text(name.split(' ')[0])
+  })
+}
+
 function drawBreakdownHistogram(svg, data, W, H) {
   // Per-personality dot plot: X = how far into the episode before first slip (<45 composure).
   // Dot right edge = never slipped. All runs overlaid per personality row.
@@ -1235,20 +1356,35 @@ export default function EvalPage() {
   const [summaryError, setSummaryError] = useState(false)
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0)
   const [availableModels, setAvailableModels] = useState([])
-  const [modelConfig, setModelConfig] = useState({})
+  const [modelConfig, setModelConfig] = useState(_saved.modelConfig ?? {})
   const [engineConfig, setEngineConfig] = useState({ public_context_window: 12, judge_context_window: 40 })
 
   // Persist UI prefs to localStorage whenever they change.
   useEffect(() => {
     localStorage.setItem(_PREFS_KEY, JSON.stringify(
-      { castOn, twists, interrupts, wineAmount, insultWeight, thresholds }
+      { castOn, twists, interrupts, wineAmount, insultWeight, thresholds, modelConfig }
     ))
-  }, [castOn, twists, interrupts, wineAmount, insultWeight, thresholds])
+  }, [castOn, twists, interrupts, wineAmount, insultWeight, thresholds, modelConfig])
 
-  // Load available models + current model config on mount
+  // Load available models + current model config on mount.
+  // Saved model choices take priority over server defaults; any saved values are
+  // re-POSTed to the API so the server is in sync after a restart.
   useEffect(() => {
     fetch('/api/models').then((r) => r.json()).then((d) => { if (Array.isArray(d)) setAvailableModels(d) }).catch(() => {})
-    fetch('/api/config/models').then((r) => r.json()).then((d) => { if (d) setModelConfig(d) }).catch(() => {})
+    fetch('/api/config/models').then((r) => r.json()).then((d) => {
+      if (!d) return
+      // Merge: saved choices override server defaults (fills in any missing roles).
+      setModelConfig((prev) => ({ ...d, ...prev }))
+      // Re-sync saved choices to server in case it restarted.
+      const savedModels = _loadPrefs().modelConfig
+      if (savedModels && Object.keys(savedModels).length > 0) {
+        fetch('/api/config/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(savedModels),
+        }).catch(() => {})
+      }
+    }).catch(() => {})
     fetch('/api/config/engine').then((r) => r.json()).then((d) => { if (d) setEngineConfig(d) }).catch(() => {})
   }, [])
 
@@ -1310,6 +1446,12 @@ export default function EvalPage() {
       ),
       first_breakdown: Object.fromEntries(
         Object.entries(run.first_breakdown ?? {}).filter(([n]) => castOn[n])
+      ),
+      talk_counts: Object.fromEntries(
+        Object.entries(run.talk_counts ?? {}).filter(([n]) => castOn[n])
+      ),
+      composure_timeline: Object.fromEntries(
+        Object.entries(run.composure_timeline ?? {}).filter(([n]) => castOn[n])
       ),
     }))
   }, [activeRuns, castOn])
@@ -1849,7 +1991,15 @@ export default function EvalPage() {
             <D3Chart draw={drawComposureTrajectory} data={filteredRuns} />
           </ChartCard>
 
-          {/* 4. Time to first breakdown */}
+          {/* 4. Composure arc over dinner */}
+          <ChartCard
+            title="Composure arc over dinner"
+            question="How does each woman's composure erode as the dinner progresses? X = statement number, Y = composure. Faint lines = earlier episodes; bold = latest."
+          >
+            <D3Chart draw={drawComposureArc} data={filteredRuns} height={175} />
+          </ChartCard>
+
+          {/* 5. Time to first breakdown */}
           <ChartCard
             title="Time to first breakdown"
             question="When does each personality first slip below composure 45? Dot at right edge = held it together all night."

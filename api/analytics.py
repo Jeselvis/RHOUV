@@ -116,6 +116,17 @@ def compute_summary(events: list[dict]) -> dict:
         "mid":  {"words": [], "aggro": []},
         "low":  {"words": [], "aggro": []},
     }
+    # Per-personality drama action counts by class
+    drama_stats: dict[str, dict[str, int]] = {}
+    # Per-personality table_talk statement count
+    talk_counts: dict[str, int] = {}
+    # Composure of every personality sampled at each table_talk event.
+    # {name: [{stmt: int, value: float}]} where stmt = running table_talk count.
+    # Captures how each personality's composure evolves over the dinner's statement sequence.
+    composure_timeline: dict[str, list] = {}
+    _current_comp: dict[str, float] = {}  # latest composure per personality
+    _seen_names: set[str] = set()         # personalities observed in this run
+    _stmt_count: int = 0
 
     for i, e in enumerate(events):
         t = e["type"]
@@ -133,6 +144,10 @@ def compute_summary(events: list[dict]) -> dict:
             )
             if e["composure"] < 45 and first_breakdown.get(e["speaker"]) is None:
                 first_breakdown[e["speaker"]] = i
+            spk = e.get("speaker") or ""
+            if spk:
+                _current_comp[spk] = e["composure"]
+                _seen_names.add(spk)
 
         elif t in ("alliance_formed", "feud_declared"):
             alliance_events.append({"a": e["a"], "b": e["b"], "kind": e["kind"]})
@@ -146,7 +161,26 @@ def compute_summary(events: list[dict]) -> dict:
         elif t == "twist":
             twists.append({"idx": i, "event": e})
 
+        elif t == "drama_action":
+            speaker = e.get("speaker") or ""
+            cls = e.get("action_class") or "scene"
+            if speaker:
+                drama_stats.setdefault(speaker, {"targeted": 0, "area": 0, "exit": 0, "scene": 0})
+                drama_stats[speaker][cls] = drama_stats[speaker].get(cls, 0) + 1
+
         elif t == "table_talk":
+            speaker = e.get("speaker") or ""
+            if speaker:
+                talk_counts[speaker] = talk_counts.get(speaker, 0) + 1
+                _seen_names.add(speaker)
+                _current_comp.setdefault(speaker, 100.0)
+            # Snapshot every known personality's composure at this statement position.
+            _stmt_count += 1
+            for name in _seen_names:
+                composure_timeline.setdefault(name, []).append({
+                    "stmt": _stmt_count,
+                    "value": _current_comp.get(name, 100.0),
+                })
             content = e.get("content") or ""
             speaker_first = (e.get("speaker") or "").split()[0]
             for fname, fullname in CAST_FIRST_NAMES.items():
@@ -163,6 +197,9 @@ def compute_summary(events: list[dict]) -> dict:
                 has_aggro = any(m in text_lower for m in _AGGRO_MARKERS)
                 behavior_buckets[tier]["words"].append(n_words)
                 behavior_buckets[tier]["aggro"].append(1 if has_aggro else 0)
+
+        # lobby_talk and pre_dinner_talk are intentionally excluded from
+        # alliance_weights — private scenes shouldn't inflate public relationship weights.
 
     run_meta = next((e for e in events if e.get("type") == "run_meta"), None)
 
@@ -186,5 +223,8 @@ def compute_summary(events: list[dict]) -> dict:
         "alliance_weights": alliance_weights,
         "alliance_events": alliance_events,
         "behavior_metrics": behavior_metrics,
+        "drama_stats": drama_stats,
+        "talk_counts": talk_counts,
+        "composure_timeline": composure_timeline,
         "run_meta": run_meta,
     }

@@ -95,6 +95,18 @@ function deriveState(events, personas) {
       case 'twist':
         feed.push({ feedType: 'twist', ...e })
         break
+      case 'drama_action':
+        feed.push({ feedType: 'drama', ...e })
+        break
+      case 'pre_dinner_talk':
+        feed.push({ feedType: 'pre_dinner', ...e })
+        break
+      case 'lobby_talk':
+        feed.push({ feedType: 'lobby', ...e })
+        break
+      case 'lobby_return':
+        feed.push({ feedType: 'lobby_return', ...e })
+        break
       default:
         break
     }

@@ -1,48 +1,173 @@
 {
-  "episode_count": 2,
-  "alliances": [],
+  "episode_count": 5,
+  "alliances": [
+    {
+      "a": "Bianca Noel",
+      "b": "Diane Wentworth",
+      "kind": "ally"
+    },
+    {
+      "a": "Madison Fleur",
+      "b": "Vivienne Davenport",
+      "kind": "feud"
+    },
+    {
+      "a": "Cassandra Cole",
+      "b": "Vivienne Davenport",
+      "kind": "ally"
+    },
+    {
+      "a": "Madison Fleur",
+      "b": "Petra Voss",
+      "kind": "ally"
+    },
+    {
+      "a": "Cassandra Cole",
+      "b": "Diane Wentworth",
+      "kind": "feud"
+    },
+    {
+      "a": "Petra Voss",
+      "b": "Vivienne Davenport",
+      "kind": "feud"
+    },
+    {
+      "a": "Cassandra Cole",
+      "b": "Petra Voss",
+      "kind": "feud"
+    },
+    {
+      "a": "Bianca Noel",
+      "b": "Vivienne Davenport",
+      "kind": "ally"
+    },
+    {
+      "a": "Diane Wentworth",
+      "b": "Madison Fleur",
+      "kind": "ally"
+    },
+    {
+      "a": "Diane Wentworth",
+      "b": "Vivienne Davenport",
+      "kind": "feud"
+    },
+    {
+      "a": "Bianca Noel",
+      "b": "Cassandra Cole",
+      "kind": "feud"
+    },
+    {
+      "a": "Cassandra Cole",
+      "b": "Madison Fleur",
+      "kind": "feud"
+    },
+    {
+      "a": "Bianca Noel",
+      "b": "Petra Voss",
+      "kind": "feud"
+    },
+    {
+      "a": "Bianca Noel",
+      "b": "Madison Fleur",
+      "kind": "feud"
+    }
+  ],
   "personalities": {
     "Bianca Noel": {
-      "brand_end": 103.0,
-      "composure_min": 65.0,
+      "brand_end": 88.0,
+      "composure_min": 55.0,
       "interruptions_received": [],
-      "interruptions_given": [],
+      "interruptions_given": [
+        "Cassandra Cole",
+        "Diane Wentworth",
+        "Cassandra Cole",
+        "Diane Wentworth",
+        "Madison Fleur",
+        "Petra Voss",
+        "Vivienne Davenport",
+        "Cassandra Cole",
+        "Cassandra Cole",
+        "Petra Voss",
+        "Cassandra Cole",
+        "Diane Wentworth",
+        "Petra Voss"
+      ],
       "grudges": []
     },
     "Cassandra Cole": {
-      "brand_end": 114.0,
-      "composure_min": 65.0,
-      "interruptions_received": [],
-      "interruptions_given": [],
-      "grudges": []
+      "brand_end": 61.0,
+      "composure_min": 25,
+      "interruptions_received": [
+        "Bianca Noel",
+        "Bianca Noel",
+        "Madison Fleur",
+        "Bianca Noel",
+        "Bianca Noel",
+        "Bianca Noel"
+      ],
+      "interruptions_given": [
+        "Madison Fleur"
+      ],
+      "grudges": [
+        "Madison Fleur",
+        "Bianca Noel"
+      ]
     },
     "Diane Wentworth": {
-      "brand_end": 96.0,
-      "composure_min": 65.0,
-      "interruptions_received": [],
+      "brand_end": 82.0,
+      "composure_min": 40.0,
+      "interruptions_received": [
+        "Bianca Noel",
+        "Bianca Noel",
+        "Bianca Noel"
+      ],
       "interruptions_given": [],
-      "grudges": []
+      "grudges": [
+        "Bianca Noel"
+      ]
     },
     "Madison Fleur": {
-      "brand_end": 97.0,
-      "composure_min": 65.0,
-      "interruptions_received": [],
-      "interruptions_given": [],
-      "grudges": []
+      "brand_end": 105.0,
+      "composure_min": 30,
+      "interruptions_received": [
+        "Bianca Noel",
+        "Cassandra Cole"
+      ],
+      "interruptions_given": [
+        "Cassandra Cole"
+      ],
+      "grudges": [
+        "Bianca Noel",
+        "Cassandra Cole"
+      ]
     },
     "Petra Voss": {
-      "brand_end": 115.0,
-      "composure_min": 45.0,
-      "interruptions_received": [],
+      "brand_end": 88.0,
+      "composure_min": 35,
+      "interruptions_received": [
+        "Bianca Noel",
+        "Vivienne Davenport",
+        "Bianca Noel",
+        "Bianca Noel"
+      ],
       "interruptions_given": [],
-      "grudges": []
+      "grudges": [
+        "Bianca Noel",
+        "Vivienne Davenport"
+      ]
     },
     "Vivienne Davenport": {
-      "brand_end": 94.0,
-      "composure_min": 30.0,
-      "interruptions_received": [],
-      "interruptions_given": [],
-      "grudges": []
+      "brand_end": 110.0,
+      "composure_min": 50.0,
+      "interruptions_received": [
+        "Bianca Noel"
+      ],
+      "interruptions_given": [
+        "Petra Voss"
+      ],
+      "grudges": [
+        "Bianca Noel"
+      ]
     }
   }
 }
