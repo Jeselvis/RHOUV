@@ -83,6 +83,9 @@ function deriveState(events, personas) {
         // Only add to feed if there are prior events (not a start-of-run emit)
         if (feed.length > 0) feed.push({ feedType: 'course', ...e })
         break
+      case 'memory_loaded':
+        if (e.speaker && e.brand_end != null) brand[e.speaker] = { score: e.brand_end, delta: 0 }
+        break
       case 'brand_delta':
         if (e.speaker) brand[e.speaker] = { score: e.score ?? 100, delta: e.delta ?? 0 }
         break
@@ -106,6 +109,15 @@ function deriveState(events, personas) {
         break
       case 'lobby_return':
         feed.push({ feedType: 'lobby_return', ...e })
+        break
+      case 'audience_tweet':
+        feed.push({ feedType: 'audience_tweet', ...e })
+        break
+      case 'cast_reads_tweets':
+        feed.push({ feedType: 'cast_reads_tweets', ...e })
+        break
+      case 'side_hustle_pivot':
+        feed.push({ feedType: 'hustle_pivot', ...e })
         break
       default:
         break

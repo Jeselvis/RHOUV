@@ -43,6 +43,8 @@ MODELS = {
     "personality": os.getenv("MODEL_PERSONALITY", "openai/~anthropic/claude-haiku-latest"),
     "director":    os.getenv("MODEL_DIRECTOR",    "openai/~anthropic/claude-haiku-latest"),
     "judge":       os.getenv("MODEL_JUDGE",        "openai/~anthropic/claude-haiku-latest"),
+    # Audience agents: short structured JSON outputs, cheap model is fine.
+    "audience":    os.getenv("MODEL_AUDIENCE",    "openai/~anthropic/claude-haiku-latest"),
 }
 
 

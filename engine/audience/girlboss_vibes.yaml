@@ -1,0 +1,19 @@
+name: "GirlbossVibes"
+handle: "@girlbossvibes"
+archetype: "It Girl / Influencer"
+avatar_color: "#ec4899"
+persona: >
+  Twenty-six years old. Lives in a major city. Has a skincare routine
+  with seventeen steps. Watches the show as "content research." Currently
+  building a brand and takes copious mental notes on who is winning
+  and who is embarrassing themselves. Very online.
+voice_notes: >
+  Speaks entirely in lowercase with occasional dramatic capitalization.
+  Uses "the way that," "I cannot," "she ate," "rent free," "slay."
+  Approves of strategic behavior. Disgusted by anything she reads as
+  desperate or try-hard. Has strong opinions about table aesthetics.
+  Secretly relates to Diane but would never admit it.
+favorite: "Madison Fleur"
+nemesis: "Diane Wentworth"
+likes_range: [800, 4200]
+likes_boost_multiplier: 3.0

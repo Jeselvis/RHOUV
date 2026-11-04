@@ -2,6 +2,113 @@ import { useState } from 'react'
 import { useEpisode } from '../hooks/useEpisode'
 import { avatarStyle, portraitStyle } from '../castConfig'
 
+function ProductBadge({ persona }) {
+  const first = persona.name.split(' ')[0].toLowerCase()
+  const brand = persona.side_hustle?.name
+  const category = persona.side_hustle?.category
+  const fallbackLetter = brand ? brand[0].toUpperCase() : '?'
+  const [imgFailed, setImgFailed] = useState(false)
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 8,
+        right: 8,
+        width: 36,
+        height: 36,
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Badge circle */}
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          overflow: 'hidden',
+          border: '2px solid rgba(255,255,255,.88)',
+          boxShadow: '0 2px 8px rgba(0,0,0,.28)',
+          background: 'rgba(244,247,249,.96)',
+          cursor: 'pointer',
+          transition: 'transform .15s ease, box-shadow .15s ease',
+          transform: hovered ? 'scale(1.15)' : 'scale(1)',
+        }}
+      >
+        {!imgFailed ? (
+          <img
+            src={`/images/products/${first}.jpg`}
+            onError={() => setImgFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            alt={brand ?? ''}
+          />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: 'var(--font-display)',
+              fontSize: 15,
+              fontWeight: 700,
+              color: 'var(--gold-text)',
+            }}
+          >
+            {fallbackLetter}
+          </div>
+        )}
+      </div>
+
+      {/* Hover popup — larger image + brand name, floats above portrait */}
+      {hovered && !imgFailed && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 48,
+            right: -4,
+            width: 180,
+            borderRadius: 6,
+            overflow: 'hidden',
+            boxShadow: '0 8px 28px rgba(0,0,0,.32)',
+            border: '1px solid rgba(160,124,52,.4)',
+            background: '#fff',
+            zIndex: 10,
+            pointerEvents: 'none',
+          }}
+        >
+          <img
+            src={`/images/products/${first}.jpg`}
+            style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }}
+            alt={brand ?? ''}
+          />
+          <div style={{ padding: '8px 10px 10px' }}>
+            <div
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 12,
+                fontWeight: 700,
+                color: 'var(--ink)',
+                letterSpacing: '.04em',
+              }}
+            >
+              {brand}
+            </div>
+            {category && (
+              <div style={{ fontSize: 10, color: 'var(--ink-secondary)', marginTop: 2 }}>
+                {category}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PersonaCard({ persona }) {
   return (
     <div
@@ -11,17 +118,21 @@ function PersonaCard({ persona }) {
         background: 'var(--panel-bg)',
         border: '1px solid rgba(160,124,52,.3)',
         borderRadius: 4,
-        overflow: 'hidden',
         boxShadow: '0 14px 30px -20px rgba(40,60,90,.5)',
+        position: 'relative',
       }}
     >
-      <div
-        style={{
-          height: 230,
-          borderBottom: '1px solid rgba(160,124,52,.3)',
-          ...portraitStyle(persona.name),
-        }}
-      />
+      <div style={{ position: 'relative' }}>
+        <div
+          style={{
+            height: 230,
+            borderBottom: '1px solid rgba(160,124,52,.3)',
+            borderRadius: '4px 4px 0 0',
+            ...portraitStyle(persona.name),
+          }}
+        />
+        {persona.side_hustle && <ProductBadge persona={persona} />}
+      </div>
       <div
         style={{
           padding: '14px 14px 16px',

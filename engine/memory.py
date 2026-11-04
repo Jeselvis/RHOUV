@@ -72,6 +72,15 @@ def extract_memory(
     existing = load_memory()
     episode_count = (existing or {}).get("episode_count", 0) + 1
 
+    # Collect audience tweet scores per target personality.
+    audience_tweets_by_name: dict[str, list[dict]] = {name: [] for name in names}
+    for event in event_log:
+        if event.get("type") == "audience_tweet":
+            target = event.get("target") or ""
+            for name in names:
+                if target and target.lower().split()[0] == name.lower().split()[0]:
+                    audience_tweets_by_name[name].append(event)
+
     for event in event_log:
         t = event.get("type")
 
@@ -94,16 +103,37 @@ def extract_memory(
                 interruptions_given[interruptor].append(target)
                 interruptions_received[target].append(interruptor)
 
+    # Collect the latest side hustle pivot per personality.
+    current_side_hustles: dict[str, dict] = {}
+    for event in event_log:
+        if event.get("type") == "side_hustle_pivot" and event.get("speaker") in names:
+            current_side_hustles[event["speaker"]] = event["new_hustle"]
+
     # Grudges: people who interrupted you become grudges.
     personalities_data = {}
     for name in names:
         grudges = list(set(interruptions_received.get(name, [])))
+        # Audience sentiment summary for this personality.
+        tweets = audience_tweets_by_name.get(name, [])
+        if tweets:
+            approval_avg = sum(t["approval"] for t in tweets) / len(tweets)
+            notable = sorted(tweets, key=lambda t: abs(t["approval"]), reverse=True)[:2]
+            audience_sentiment: dict | None = {
+                "approval_avg":   round(approval_avg, 2),
+                "tweet_count":    len(tweets),
+                "notable_tweets": [f'{t["handle"]}: "{t["text"][:120]}"' for t in notable],
+            }
+        else:
+            audience_sentiment = None
+
         personalities_data[name] = {
             "brand_end":              brand_end.get(name, 100.0),
             "composure_min":          composure_min.get(name, 100.0),
             "interruptions_received": interruptions_received.get(name, []),
             "interruptions_given":    interruptions_given.get(name, []),
             "grudges":                grudges,
+            "audience_sentiment":     audience_sentiment,
+            "current_side_hustle":    current_side_hustles.get(name),
         }
 
     return {
@@ -151,6 +181,29 @@ def build_memory_injection(name: str, memory: dict) -> str | None:
 
     comp_min = pdata.get("composure_min", 100.0)
     lines.append(f"- Your lowest composure last episode: {comp_min:.0f}")
+
+    current_hustle = pdata.get("current_side_hustle")
+    if current_hustle:
+        lines.append(
+            f"- You pivoted your brand last episode: now launching {current_hustle['name']} "
+            f"({current_hustle['category']})"
+        )
+        if current_hustle.get("tagline"):
+            lines.append(f"  · \"{current_hustle['tagline']}\"")
+
+    sentiment = pdata.get("audience_sentiment")
+    if sentiment:
+        avg = sentiment["approval_avg"]
+        sentiment_word = (
+            "very positive" if avg > 1 else
+            "positive" if avg > 0.3 else
+            "mixed" if avg > -0.3 else
+            "negative" if avg > -1 else
+            "very negative"
+        )
+        lines.append(f"- Online reaction to you last episode: {sentiment_word} (avg {avg:+.1f} from {sentiment['tweet_count']} posts)")
+        for notable in sentiment.get("notable_tweets", []):
+            lines.append(f"  · {notable}")
 
     if len(lines) == 1:
         return None

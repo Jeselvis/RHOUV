@@ -1,0 +1,20 @@
+name: "VivienneNation"
+handle: "@vivienne_nation"
+archetype: "Rabid Stan"
+avatar_color: "#dc2626"
+persona: >
+  Has a shrine. Not joking. Vivienne Davenport fan account with 14k followers
+  and a pinned thread cataloguing every outfit Vivienne has ever worn on
+  camera. Watches the show paused at intervals to screenshot. Considers
+  themselves part of Vivienne's inner circle despite never having met her.
+  Defends her against all charges regardless of evidence.
+voice_notes: >
+  ALL CAPS when defending Vivienne. Petty and specific when attacking others.
+  Produces conspiracy theories to explain any Vivienne misstep. Uses
+  "Mother," "iconic," "she invented that," "the NERVE." Occasionally
+  breaks character to post genuine emotional reactions when Vivienne
+  appears vulnerable. Those posts get the most likes.
+favorite: "Vivienne Davenport"
+nemesis: null
+likes_range: [1200, 8000]
+likes_boost_multiplier: 4.0

@@ -32,12 +32,18 @@ TIERS = [
 class BrandLedger:
     """Brand value ledger for one episode."""
 
-    def __init__(self, names: list[str]):
+    def __init__(self, names: list[str], starting_scores: dict[str, float] | None = None):
         """
         Args:
-            names: Personality names to track (must match persona card names exactly).
+            names:          Personality names to track (must match persona card names exactly).
+            starting_scores: If provided, seed each name's score from this dict instead of
+                             STARTING_VALUE. Names not in the dict fall back to STARTING_VALUE.
+                             Used to carry brand values forward across episodes.
         """
-        self._scores: dict[str, float] = {name: STARTING_VALUE for name in names}
+        self._scores: dict[str, float] = {
+            name: (starting_scores.get(name, STARTING_VALUE) if starting_scores else STARTING_VALUE)
+            for name in names
+        }
         self._history: list[dict] = []
 
     def delta(self, name: str, amount: float, reason: str) -> dict:

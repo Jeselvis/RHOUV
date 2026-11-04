@@ -1,0 +1,20 @@
+name: "ProfDrNgozi"
+handle: "@profdrngozi"
+archetype: "Feminist Academic"
+avatar_color: "#0891b2"
+persona: >
+  Associate professor of gender studies. Watches the show "ironically" and
+  then cannot stop. Has written two unpublished essays about it. Oscillates
+  between genuine intellectual engagement and embarrassed enjoyment.
+  Applies theoretical frameworks to dinner table conflict with complete
+  seriousness. Her students have found her account.
+voice_notes: >
+  Drops jargon naturally: "performing femininity," "internalized hierarchy,"
+  "the gaze," "lateral aggression." Occasionally abandons the framework and
+  just reacts like a normal person, then immediately re-theorizes.
+  Grudging respect for Bianca's intelligence. Impatient with Cassandra's
+  performance of niceness. Will not admit how much she enjoys the drama.
+favorite: "Bianca Noel"
+nemesis: "Cassandra Cole"
+likes_range: [180, 900]
+likes_boost_multiplier: 1.8

@@ -38,12 +38,14 @@ from pathlib import Path
 import yaml
 
 from engine.alliances import AllianceLedger, check_alliance_signal
+from engine.audience import load_audience_personas, generate_tweets, generate_cast_reads_tweets, AUDIENCE_TRIGGERS
 from engine.brand import BrandLedger
 from engine.composure import ComposureLedger
 from engine.director import Director, INTERRUPT_COMPOSURE_HIT, DEFAULT_CONFESSIONAL_EVERY
 from engine.drama import check_drama_signal, apply_drama_consequences
 from engine.llm import call, MODELS, reset_token_totals, get_token_totals, override_models
 from engine.memory import load_memory, save_memory, extract_memory, build_memory_injection
+from engine.side_hustle import generate_pivot, PIVOT_THRESHOLD
 from engine.offscreen import load_offscreen, build_offscreen_context
 
 
@@ -299,6 +301,14 @@ def print_event(event: dict) -> None:
         print(f"\n  [{event['speaker']} returns to the table]")
     elif t == "pre_dinner_talk":
         print(f"\n  [PRE-DINNER] {event['speaker']}: {event['content']}")
+    elif t == "audience_tweet":
+        print(f"  [AUDIENCE] {event['handle']}: {event['text'][:100]}")
+    elif t == "cast_reads_tweets":
+        print(f"\n  [READS TWEETS — {event['speaker']}] {event['text'][:120]}")
+    elif t == "side_hustle_pivot":
+        old = event.get("old_hustle", {}).get("name", "?")
+        new = event.get("new_hustle", {}).get("name", "?")
+        print(f"\n  [PIVOT] {event['speaker']}: {old} → {new}  (brand {event['brand_score']})")
 
 
 def print_leaderboard(ledger: BrandLedger) -> None:
@@ -663,6 +673,7 @@ def run_episode(
     wine_amount: float = 1.0,
     drama_enabled: bool = True,
     pre_dinner_enabled: bool = True,
+    audience_enabled: bool = True,
 ) -> list[dict]:
     """Run one full dinner episode and return the complete event log."""
 
@@ -677,11 +688,38 @@ def run_episode(
 
     reset_token_totals()
 
+    # Load audience personas once; empty list disables audience gracefully.
+    audience_personas = load_audience_personas() if audience_enabled else []
+
+    def _fire_audience(trigger_event: dict) -> None:
+        """Generate + log audience tweets for a trigger event."""
+        if not audience_personas:
+            return
+        if trigger_event.get("type") not in AUDIENCE_TRIGGERS:
+            return
+        ctx_lines = [
+            f"{e['speaker']}: {e['content']}"
+            for e in event_log
+            if e.get("type") == "table_talk"
+        ][-3:]
+        tweets = generate_tweets(trigger_event, ctx_lines, audience_personas)
+        for tw in tweets:
+            log(tw)
+            print_event(tw)
+
     prior_memory = load_memory()
     offscreen = load_offscreen()
     floors = {name: card.get("composure_floor", 0.0) for name, card in personas.items()}
 
-    brand     = BrandLedger(names)
+    # Carry brand scores forward from prior episode — scores accumulate across dinners.
+    brand_starting: dict[str, float] = {}
+    if prior_memory:
+        for name in names:
+            pdata = prior_memory.get("personalities", {}).get(name, {})
+            if "brand_end" in pdata:
+                brand_starting[name] = pdata["brand_end"]
+    brand = BrandLedger(names, starting_scores=brand_starting or None)
+
     from engine.composure import WINE_TICK_AMOUNT as _WINE_TICK_DEFAULT
     composure = ComposureLedger(names, floors=floors, wine_tick_amount=_WINE_TICK_DEFAULT * wine_amount)
     director  = Director(names, turns_per_course=turns_per_course, confessional_every=confessional_every)
@@ -764,6 +802,7 @@ def run_episode(
             }
             log(return_event)
             print_event(return_event)
+            _fire_audience(return_event)
 
         # ── Determine next speaker ────────────────────────────────────────────
         if pending_interrupt:
@@ -824,6 +863,7 @@ def run_episode(
                 }
                 log(twist_event)
                 print_event(twist_event)
+                _fire_audience(twist_event)
                 user_content = f"The host just announced: {twist}\n\n" + user_content
 
         messages = [{"role": "user", "content": user_content}]
@@ -873,6 +913,7 @@ def run_episode(
             }
             log(interrupt_event)
             print_event(interrupt_event)
+            _fire_audience(interrupt_event)
 
             composure_event = composure.delta(
                 speaker, -INTERRUPT_COMPOSURE_HIT, f"interrupted by {interruptor_target}"
@@ -893,6 +934,7 @@ def run_episode(
         if alliance_kind and alliance_target and alliance_target != speaker:
             alliance_event = alliances.set(speaker, alliance_target, alliance_kind)
             log(alliance_event)
+            _fire_audience(alliance_event)
 
         # ── Drama signal ──────────────────────────────────────────────────────
         if drama_class:
@@ -907,6 +949,7 @@ def run_episode(
             }
             log(drama_event)
             print_event(drama_event)
+            _fire_audience(drama_event)
 
             apply_drama_consequences(
                 drama_class, speaker, drama_target, names, composure, brand, log
@@ -978,6 +1021,56 @@ def run_episode(
     for e in scoring_events:
         log(e)
 
+    # ── Side hustle pivots: brand in crisis → desperate new brand ─────────────
+    # Find each personality whose final brand score fell below PIVOT_THRESHOLD.
+    # Only fires once per personality per episode (tracked via pivoted set).
+    _pivoted: set[str] = set()
+    _final_scores: dict[str, float] = {}
+    for e in event_log:
+        if e.get("type") == "brand_delta" and e.get("speaker") in names:
+            _final_scores[e["speaker"]] = e["score"]
+
+    for name in names:
+        score = _final_scores.get(name, 100.0)
+        if score < PIVOT_THRESHOLD and name not in _pivoted:
+            _pivoted.add(name)
+            old_hustle = personas[name].get("side_hustle") or {}
+            print(f"\n  [PIVOT TRIGGERED] {name} brand={score:.0f}, generating new hustle…")
+            try:
+                new_hustle = generate_pivot(name, personas[name], old_hustle, score)
+                if new_hustle:
+                    personas[name]["side_hustle"] = new_hustle
+                    pivot_event = {
+                        "type":        "side_hustle_pivot",
+                        "speaker":     name,
+                        "old_hustle":  old_hustle,
+                        "new_hustle":  new_hustle,
+                        "brand_score": round(score, 1),
+                        "timestamp":   datetime.now(timezone.utc).isoformat(),
+                    }
+                    log(pivot_event)
+                    print_event(pivot_event)
+            except Exception as exc:
+                print(f"  [WARN] side hustle pivot failed for {name}: {exc}")
+
+    # ── Post-show: cast reads audience tweets ─────────────────────────────────
+    if audience_personas:
+        try:
+            print(f"\n{'─'*60}")
+            print("  CAST READS TWEETS")
+            print(f"{'─'*60}")
+            cast_reactions = generate_cast_reads_tweets(
+                event_log=event_log,
+                names=names,
+                audience_personas=audience_personas,
+                persona_cards=list(personas.values()),
+            )
+            for reaction in cast_reactions:
+                log(reaction)
+                print_event(reaction)
+        except Exception as exc:
+            print(f"  [WARN] post-show audience phase failed: {exc}")
+
     # ── Save cross-episode memory ──────────────────────────────────────────────
     memory = extract_memory(event_log, names, alliances)
     save_memory(memory)
@@ -1004,6 +1097,7 @@ def run_episode(
         "wine_amount":             wine_amount,
         "drama_enabled":           drama_enabled,
         "pre_dinner_enabled":      pre_dinner_enabled,
+        "audience_enabled":        audience_enabled,
         "timestamp":               datetime.now(timezone.utc).isoformat(),
     }
     log(meta_event)
@@ -1040,6 +1134,8 @@ def main():
                         help="Disable DRAMA: signal (baseline runs).")
     parser.add_argument("--no-pre-dinner", action="store_true",
                         help="Skip the pre-dinner sub-group scene.")
+    parser.add_argument("--no-audience", action="store_true",
+                        help="Disable audience tweet agents.")
     args = parser.parse_args()
 
     model_overrides = {
@@ -1069,6 +1165,7 @@ def main():
             live_output=output_path,
             drama_enabled=not args.no_drama,
             pre_dinner_enabled=not args.no_pre_dinner,
+            audience_enabled=not args.no_audience,
         )
         if args.public_context_window is not None:
             ep_kwargs["public_context_window"] = args.public_context_window

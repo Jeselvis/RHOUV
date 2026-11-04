@@ -111,6 +111,7 @@ def compute_summary(events: list[dict]) -> dict:
     twists: list[dict] = []
     alliance_weights: dict[str, float] = {}
     alliance_events: list[dict] = []
+    alliance_timeline: list[dict] = []
     behavior_buckets: dict[str, dict] = {
         "high": {"words": [], "aggro": []},
         "mid":  {"words": [], "aggro": []},
@@ -118,6 +119,9 @@ def compute_summary(events: list[dict]) -> dict:
     }
     # Per-personality drama action counts by class
     drama_stats: dict[str, dict[str, int]] = {}
+    # Audience approval per personality per audience handle.
+    # {personality_full_name: {handle: {approval_sum, drama_sum, count}}}
+    audience_scores: dict[str, dict[str, dict]] = {}
     # Per-personality table_talk statement count
     talk_counts: dict[str, int] = {}
     # Composure of every personality sampled at each table_talk event.
@@ -151,12 +155,20 @@ def compute_summary(events: list[dict]) -> dict:
 
         elif t in ("alliance_formed", "feud_declared"):
             alliance_events.append({"a": e["a"], "b": e["b"], "kind": e["kind"]})
+            alliance_timeline.append({
+                "idx": i, "stmt": _stmt_count,
+                "a": e["a"], "b": e["b"], "kind": e["kind"],
+            })
 
         elif t == "interrupt":
             a = e.get("interruptor") or e.get("interrupter")
             b = e.get("target") or e.get("interrupted")
             if a and b:
                 alliance_events.append({"a": a, "b": b, "kind": "feud"})
+                alliance_timeline.append({
+                    "idx": i, "stmt": _stmt_count,
+                    "a": a, "b": b, "kind": "interrupt",
+                })
 
         elif t == "twist":
             twists.append({"idx": i, "event": e})
@@ -198,6 +210,24 @@ def compute_summary(events: list[dict]) -> dict:
                 behavior_buckets[tier]["words"].append(n_words)
                 behavior_buckets[tier]["aggro"].append(1 if has_aggro else 0)
 
+        elif t == "audience_tweet":
+            # Prefer explicit target; fall back to trigger_speaker (first name).
+            raw_target = (e.get("target") or "").strip()
+            if not raw_target:
+                ts = (e.get("trigger_speaker") or "").strip()
+                raw_target = ts.split()[0] if ts else ""
+            target_first = raw_target.split()[0] if raw_target else ""
+            if target_first:
+                # Resolve first name to full name — CAST_FIRST_NAMES keys are Title Case
+                full_target = CAST_FIRST_NAMES.get(target_first) or CAST_FIRST_NAMES.get(target_first.capitalize())
+                if full_target:
+                    handle = e.get("handle") or ""
+                    audience_scores.setdefault(full_target, {})
+                    audience_scores[full_target].setdefault(handle, {"approval_sum": 0, "drama_sum": 0, "count": 0})
+                    audience_scores[full_target][handle]["approval_sum"] += e.get("approval", 0)
+                    audience_scores[full_target][handle]["drama_sum"] += e.get("drama_satisfaction", 3)
+                    audience_scores[full_target][handle]["count"] += 1
+
         # lobby_talk and pre_dinner_talk are intentionally excluded from
         # alliance_weights — private scenes shouldn't inflate public relationship weights.
 
@@ -211,6 +241,18 @@ def compute_summary(events: list[dict]) -> dict:
             "avg_words": round(sum(data["words"]) / n, 1) if n else 0,
             "aggro_rate": round(sum(data["aggro"]) / n, 3) if n else 0,
         }
+
+    # Flatten audience_scores to averages
+    audience_scores_avg: dict[str, dict[str, dict]] = {}
+    for personality, handles in audience_scores.items():
+        audience_scores_avg[personality] = {}
+        for handle, agg in handles.items():
+            n = agg["count"]
+            audience_scores_avg[personality][handle] = {
+                "approval_avg": round(agg["approval_sum"] / n, 2) if n else 0,
+                "drama_avg":    round(agg["drama_sum"] / n, 2) if n else 0,
+                "count": n,
+            }
 
     return {
         "total": len(events),
@@ -226,5 +268,7 @@ def compute_summary(events: list[dict]) -> dict:
         "drama_stats": drama_stats,
         "talk_counts": talk_counts,
         "composure_timeline": composure_timeline,
+        "alliance_timeline": alliance_timeline,
+        "audience_scores": audience_scores_avg,
         "run_meta": run_meta,
     }

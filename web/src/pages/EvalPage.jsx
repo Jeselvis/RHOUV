@@ -599,10 +599,11 @@ function drawTwistImpact(svg, data, W, H) {
       .attr('x', prevX + 2).attr('y', 0)
       .attr('width', x - prevX - 4).attr('height', iH)
       .attr('fill', '#c9a24e').attr('fill-opacity', 0.08)
-    // Top label: twist count
-    g.append('text').attr('x', (prevX + x) / 2).attr('y', -4)
-      .attr('text-anchor', 'middle').attr('font-size', 8).attr('fill', '#a87f2f')
-      .text(`${run.twists.length} twist${run.twists.length > 1 ? 's' : ''}`)
+    // Top label: twist count — inside the band so it's not clipped
+    g.append('text').attr('x', (prevX + x) / 2).attr('y', 11)
+      .attr('text-anchor', 'middle').attr('font-size', 10).attr('font-weight', 600)
+      .attr('fill', '#a87f2f')
+      .text(`${run.twists.length}✦`)
   })
 
   // Y axis ticks
@@ -650,6 +651,118 @@ function drawTwistImpact(svg, data, W, H) {
     g.append('text').attr('x', iW / 2).attr('y', iH / 2).attr('text-anchor', 'middle')
       .attr('font-size', 10).attr('fill', '#9aa7b4').attr('font-style', 'italic').text('no twist episodes yet')
   }
+}
+
+// ─── Audience approval chart ──────────────────────────────────────────────────
+
+const AUDIENCE_HANDLE_COLORS = {
+  '@blessed_mom_of_4': '#7c3aed',
+  '@girlbossvibes':    '#ec4899',
+  '@vivienne_nation':  '#dc2626',
+  '@profdrngozi':      '#0891b2',
+  '@dramaericxo':      '#f59e0b',
+  '@garymcallister55': '#64748b',
+}
+
+function drawAudienceApproval(svg, data, W, H) {
+  const el = d3.select(svg)
+  el.selectAll('*').remove()
+  if (!data.length) return
+
+  // Aggregate approval across all runs per (personality, handle)
+  const totals = {}   // { personality: { handle: { sum, count } } }
+  const allHandles = new Set()
+
+  for (const run of data) {
+    const scores = run.audience_scores ?? {}
+    for (const [personality, handles] of Object.entries(scores)) {
+      totals[personality] ??= {}
+      for (const [handle, vals] of Object.entries(handles)) {
+        allHandles.add(handle)
+        totals[personality][handle] ??= { sum: 0, count: 0 }
+        totals[personality][handle].sum += vals.approval_avg * vals.count
+        totals[personality][handle].count += vals.count
+      }
+    }
+  }
+
+  if (Object.keys(totals).length === 0) {
+    el.append('text').attr('x', W / 2).attr('y', H / 2)
+      .attr('text-anchor', 'middle').attr('font-size', 10)
+      .attr('fill', '#9aa7b4').attr('font-style', 'italic')
+      .text('no audience data yet')
+    return
+  }
+
+  const handles = [...allHandles].sort()
+  const activeNames = data[0]?.activeNames ?? CAST_ORDER
+  const personalities = activeNames.filter((n) => totals[n])
+
+  const LEGEND_ROWS = Math.ceil(handles.length / 3)
+  const LEGEND_H = LEGEND_ROWS * 14 + 8
+  const PAD = { top: 16, right: 8, bottom: 30 + LEGEND_H, left: 30 }
+  const iW = W - PAD.left - PAD.right
+  const iH = H - PAD.top - PAD.bottom
+
+  const bandW = iW / personalities.length
+  const barW = (bandW - 6) / handles.length
+
+  // y scale: -2 to +2
+  const y = d3.scaleLinear().domain([-2, 2]).range([iH, 0])
+  const g = el.append('g').attr('transform', `translate(${PAD.left},${PAD.top})`)
+
+  // Zero line
+  g.append('line')
+    .attr('x1', 0).attr('x2', iW)
+    .attr('y1', y(0)).attr('y2', y(0))
+    .attr('stroke', '#94a3b8').attr('stroke-width', 1).attr('stroke-dasharray', '3,3')
+
+  // Y axis
+  g.append('g').call(
+    d3.axisLeft(y).ticks(4).tickSize(3)
+      .tickFormat((d) => d > 0 ? `+${d}` : d)
+  ).call((ax) => {
+    ax.select('.domain').remove()
+    ax.selectAll('text').attr('font-size', 8).attr('fill', '#64748b')
+    ax.selectAll('line').attr('stroke', '#e2e8f0')
+  })
+
+  // Bars
+  personalities.forEach((name, pi) => {
+    const bx = pi * bandW + 3
+    handles.forEach((handle, hi) => {
+      const agg = totals[name]?.[handle]
+      if (!agg || agg.count === 0) return
+      const avg = agg.sum / agg.count
+      const color = AUDIENCE_HANDLE_COLORS[handle] ?? '#94a3b8'
+      const barX = bx + hi * barW
+      const barY = avg >= 0 ? y(avg) : y(0)
+      const barH = Math.abs(y(avg) - y(0))
+      g.append('rect')
+        .attr('x', barX).attr('y', barY)
+        .attr('width', Math.max(barW - 1, 1)).attr('height', Math.max(barH, 1))
+        .attr('fill', color).attr('opacity', 0.85).attr('rx', 1)
+    })
+    // Name label
+    g.append('text')
+      .attr('x', bx + (bandW - 6) / 2).attr('y', iH + 14)
+      .attr('text-anchor', 'middle').attr('font-size', 8).attr('fill', '#64748b')
+      .text(name.split(' ')[0])
+  })
+
+  // Legend
+  const ITEMS_PER_ROW = 3
+  handles.forEach((handle, i) => {
+    const row = Math.floor(i / ITEMS_PER_ROW)
+    const col = i % ITEMS_PER_ROW
+    const lx = col * (iW / ITEMS_PER_ROW)
+    const ly = iH + 24 + row * 14
+    const color = AUDIENCE_HANDLE_COLORS[handle] ?? '#94a3b8'
+    g.append('rect').attr('x', lx).attr('y', ly - 6).attr('width', 8).attr('height', 8)
+      .attr('fill', color).attr('rx', 1)
+    g.append('text').attr('x', lx + 11).attr('y', ly)
+      .attr('font-size', 8).attr('fill', '#64748b').text(handle)
+  })
 }
 
 function drawAllianceHeatmap(svg, data, W, H) {
@@ -1332,6 +1445,249 @@ function AllianceEvolutionChart({ runs }) {
   )
 }
 
+// ─── Alliance season animation ────────────────────────────────────────────────
+// Shows every alliance/feud/interrupt event across the whole season in order.
+// The scrubber steps through events one by one; nodes are fixed in a circle.
+
+function AllianceSeasonGraph({ runs }) {
+  const [frameIdx, setFrameIdx] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const svgRef = useRef(null)
+
+  const activeNames = runs[0]?.activeNames ?? CAST_ORDER
+
+  // Flat list of all alliance events across all runs, tagged with episode number.
+  // epStarts = [{ep, startIdx}] for scrubber tick marks.
+  const { seasonEvents, epStarts } = useMemo(() => {
+    const events = []
+    const starts = []
+    for (let ri = 0; ri < runs.length; ri++) {
+      const tl = runs[ri].alliance_timeline ?? []
+      const startIdx = events.length
+      let added = false
+      for (const ev of tl) {
+        if (!activeNames.includes(ev.a) || !activeNames.includes(ev.b)) continue
+        events.push({ ep: ri + 1, ...ev })
+        added = true
+      }
+      if (added) starts.push({ ep: ri + 1, startIdx })
+    }
+    return { seasonEvents: events, epStarts: starts }
+  }, [runs, activeNames])
+
+  // Cumulative edge state at current frame position
+  const edgeState = useMemo(() => {
+    const state = {}
+    for (let i = 0; i <= frameIdx && i < seasonEvents.length; i++) {
+      const ev = seasonEvents[i]
+      const key = [ev.a, ev.b].sort().join('|')
+      state[key] = ev.kind
+    }
+    return state
+  }, [seasonEvents, frameIdx])
+
+  const currentEvent = seasonEvents[frameIdx] ?? null
+
+  // Fixed circular node positions
+  const positions = useMemo(() => {
+    const W = 400, H = 220, CX = W / 2, CY = H / 2, R = 85
+    const pos = {}
+    activeNames.forEach((name, i) => {
+      const angle = (2 * Math.PI * i / activeNames.length) - Math.PI / 2
+      pos[name] = { x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle) }
+    })
+    return pos
+  }, [activeNames])
+
+  // Draw nodes (once per cast change)
+  useEffect(() => {
+    if (!svgRef.current) return
+    const svg = d3.select(svgRef.current)
+    svg.selectAll('*').remove()
+    svg.append('g').attr('class', 'edges-layer')
+    const nodesG = svg.append('g').attr('class', 'nodes-layer')
+    const NODE_SIZE = 28
+    const IMG_W = 1424, FACE_Y = 270, k = NODE_SIZE / 50
+    const FX_MAP = {
+      'Vivienne Davenport': 178, 'Cassandra Cole': 394,
+      'Bianca Noel': 608, 'Diane Wentworth': 822,
+      'Petra Voss': 1043, 'Madison Fleur': 1258,
+    }
+    for (const name of activeNames) {
+      const p = positions[name]
+      if (!p) continue
+      const g = nodesG.append('g').attr('transform', `translate(${p.x},${p.y})`)
+      g.append('circle').attr('r', NODE_SIZE / 2 + 2)
+        .attr('fill', 'none').attr('stroke', personaColor(name)).attr('stroke-width', 2)
+      const fx = FX_MAP[name] ?? 178
+      g.append('foreignObject')
+        .attr('x', -NODE_SIZE / 2).attr('y', -NODE_SIZE / 2)
+        .attr('width', NODE_SIZE).attr('height', NODE_SIZE)
+        .append('xhtml:div')
+        .style('width', NODE_SIZE + 'px').style('height', NODE_SIZE + 'px')
+        .style('border-radius', '50%').style('overflow', 'hidden')
+        .style('background-image', "url('/title-card.webp')")
+        .style('background-size', `${IMG_W * k}px auto`)
+        .style('background-position', `${-(fx * k - NODE_SIZE / 2)}px ${-(FACE_Y * k - NODE_SIZE / 2)}px`)
+        .style('background-repeat', 'no-repeat')
+    }
+  }, [activeNames, positions])
+
+  // Update edges on frame change — newly formed edge gets a brief width flash
+  useEffect(() => {
+    if (!svgRef.current || !seasonEvents.length) return
+    const svg = d3.select(svgRef.current)
+    const edgesLayer = svg.select('.edges-layer')
+    if (edgesLayer.empty()) return
+
+    const newKey = currentEvent
+      ? [currentEvent.a, currentEvent.b].sort().join('|')
+      : null
+
+    const edgeData = []
+    for (const [key, kind] of Object.entries(edgeState)) {
+      const [a, b] = key.split('|')
+      const pa = positions[a], pb = positions[b]
+      if (!pa || !pb) continue
+      const isNew = key === newKey
+      if (kind === 'ally') {
+        edgeData.push({ key, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+          stroke: '#b48a35', targetWidth: 3, opacity: 1, dasharray: '', flash: isNew })
+      } else {
+        edgeData.push({ key, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y,
+          stroke: '#b2393f', targetWidth: 3, opacity: 1, dasharray: '6 4', flash: isNew })
+      }
+    }
+
+    const T = d3.transition().duration(400).ease(d3.easeCubicOut)
+    const lines = edgesLayer.selectAll('line.sg').data(edgeData, (d) => d.key)
+
+    lines.enter()
+      .append('line').attr('class', 'sg')
+      .attr('x1', (d) => d.x1).attr('y1', (d) => d.y1)
+      .attr('x2', (d) => d.x2).attr('y2', (d) => d.y2)
+      .attr('opacity', 0)
+      .attr('stroke', (d) => d.stroke)
+      .attr('stroke-dasharray', (d) => d.dasharray)
+      .attr('stroke-width', (d) => d.flash ? 7 : d.targetWidth)
+      .merge(lines)
+      .transition(T)
+      .attr('opacity', (d) => d.opacity)
+      .attr('stroke', (d) => d.stroke)
+      .attr('stroke-width', (d) => d.targetWidth)
+      .attr('stroke-dasharray', (d) => d.dasharray)
+
+    lines.exit().transition(T).attr('opacity', 0).remove()
+  }, [frameIdx, edgeState, positions, currentEvent, seasonEvents.length])
+
+  // Auto-play
+  useEffect(() => {
+    if (!playing) return
+    const id = setInterval(() => {
+      setFrameIdx((prev) => {
+        if (prev >= seasonEvents.length - 1) { setPlaying(false); return prev }
+        return prev + 1
+      })
+    }, 700)
+    return () => clearInterval(id)
+  }, [playing, seasonEvents.length])
+
+  // Reset when run set changes
+  useEffect(() => { setFrameIdx(0); setPlaying(false) }, [runs])
+
+  if (!runs.length) return (
+    <div style={{ fontSize: 12, color: 'var(--ink-muted)', padding: '20px 0' }}>No episodes yet.</div>
+  )
+  if (!seasonEvents.length) return (
+    <div style={{ fontSize: 12, color: 'var(--ink-muted)', padding: '20px 0' }}>
+      No alliance or feud events recorded yet. Film a new episode to populate.
+    </div>
+  )
+
+  const atStart = frameIdx === 0
+  const atEnd = frameIdx >= seasonEvents.length - 1
+  const maxFrame = Math.max(1, seasonEvents.length - 1)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ position: 'relative' }}>
+        <svg ref={svgRef} viewBox="0 0 400 220"
+          style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }} />
+        {currentEvent && (
+          <div style={{
+            position: 'absolute', top: 2, right: 0,
+            fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 700,
+            letterSpacing: '.1em', color: 'var(--gold-text)',
+          }}>
+            EP {currentEvent.ep}
+          </div>
+        )}
+      </div>
+
+      {/* Scrubber with episode tick labels */}
+      <div style={{ position: 'relative', paddingBottom: 16 }}>
+        {epStarts.map(({ ep, startIdx }) => (
+          <div key={ep} style={{
+            position: 'absolute', bottom: 0,
+            left: `${(startIdx / maxFrame) * 100}%`,
+            fontSize: 8, color: 'var(--gold-text)', fontWeight: 700,
+            transform: 'translateX(-50%)',
+            pointerEvents: 'none',
+          }}>
+            {ep}
+          </div>
+        ))}
+        <input type="range" min={0} max={maxFrame} value={frameIdx}
+          onChange={(e) => setFrameIdx(+e.target.value)}
+          style={{ width: '100%', accentColor: '#b48a35' }}
+        />
+      </div>
+
+      {/* Playback controls + event label */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button onClick={() => setFrameIdx((p) => Math.max(0, p - 1))}
+          disabled={atStart} style={_CTL_BTN(atStart)}>←</button>
+        <button
+          onClick={() => {
+            if (atEnd) { setFrameIdx(0); setPlaying(true) }
+            else setPlaying((p) => !p)
+          }}
+          style={_CTL_BTN(false)}
+        >{playing ? '⏸' : atEnd ? '↺' : '▶'}</button>
+        <button onClick={() => setFrameIdx((p) => Math.min(maxFrame, p + 1))}
+          disabled={atEnd} style={_CTL_BTN(atEnd)}>→</button>
+        {currentEvent && (
+          <div style={{ marginLeft: 8, fontSize: 11, color: '#3d4a5a', fontStyle: 'italic' }}>
+            {currentEvent.a.split(' ')[0]}
+            {currentEvent.kind === 'ally' ? ' ↔ ' : ' ⚡ '}
+            {currentEvent.b.split(' ')[0]}
+          </div>
+        )}
+        <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-muted)' }}>
+          {frameIdx + 1} / {seasonEvents.length}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--ink-muted)', alignItems: 'center' }}>
+        {[
+          { stroke: '#b48a35', width: 3, dash: null,  label: 'ally' },
+          { stroke: '#b2393f', width: 3, dash: '5 3', label: 'feud / interrupt' },
+        ].map(({ stroke, width, dash, label }) => (
+          <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="20" height="8">
+              <line x1="0" y1="4" x2="20" y2="4"
+                stroke={stroke} strokeWidth={width}
+                strokeDasharray={dash ?? undefined} />
+            </svg>
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const _PREFS_KEY = 'rhouv_eval_prefs'
 function _loadPrefs() {
   try { return JSON.parse(localStorage.getItem(_PREFS_KEY) ?? '{}') } catch { return {} }
@@ -1452,6 +1808,9 @@ export default function EvalPage() {
       ),
       composure_timeline: Object.fromEntries(
         Object.entries(run.composure_timeline ?? {}).filter(([n]) => castOn[n])
+      ),
+      alliance_timeline: (run.alliance_timeline ?? []).filter(
+        (ev) => castOn[ev.a] && castOn[ev.b]
       ),
     }))
   }, [activeRuns, castOn])
@@ -2061,6 +2420,22 @@ export default function EvalPage() {
             question="How do mention ties and explicit alliances shift across episodes?"
           >
             <AllianceEvolutionChart runs={filteredRuns} />
+          </ChartCard>
+
+          {/* 10. Alliance season timeline */}
+          <ChartCard
+            title="Alliance season timeline"
+            question="Every alliance, feud, and interrupt across the whole season — event by event. Scrub or play to watch relationships form."
+          >
+            <AllianceSeasonGraph runs={filteredRuns} />
+          </ChartCard>
+
+          {/* 11. Audience approval */}
+          <ChartCard
+            title="Audience approval by personality"
+            question="How did each viewer archetype rate each cast member? Bars show average approval (-2 to +2) per audience handle."
+          >
+            <D3Chart draw={drawAudienceApproval} data={filteredRuns} height={180} />
           </ChartCard>
         </div>
       </div>

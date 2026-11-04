@@ -92,6 +92,11 @@ def get_personas() -> list[dict]:
         data = yaml.safe_load(f.read_text())
         all_data[data["name"]] = data
 
+    # Load memory to pick up any cross-episode side hustle pivots.
+    from engine.memory import load_memory
+    memory = load_memory()
+    memory_personalities = (memory or {}).get("personalities", {})
+
     personas = []
     for name, data in all_data.items():
         # Resolve whose secret this personality knows (mirrors build_secret_context in run.py).
@@ -104,6 +109,10 @@ def get_personas() -> list[dict]:
                 known_secret = other_data.get("secret", "")
                 break
 
+        # Use pivoted side hustle from memory if present, else fall back to YAML.
+        current_side_hustle = memory_personalities.get(name, {}).get("current_side_hustle")
+        side_hustle = current_side_hustle or data.get("side_hustle")
+
         personas.append(
             {
                 "name": data["name"],
@@ -115,6 +124,7 @@ def get_personas() -> list[dict]:
                 "secret": data.get("secret", ""),
                 "known_about": known_about,
                 "known_secret": known_secret,
+                "side_hustle": side_hustle,
             }
         )
     return sorted(personas, key=lambda x: x["title_card_position"])

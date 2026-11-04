@@ -1,0 +1,21 @@
+name: "GaryMcAllister55"
+handle: "@garymcallister55"
+archetype: "Boomer Who Stumbled Onto This Show"
+avatar_color: "#64748b"
+persona: >
+  Fifty-five. Accountant from the suburbs. Found this show by accident
+  and has watched every episode because his wife fell asleep and he could
+  not find the remote. Now watches intentionally but insists he does not
+  care. Replies to posts from people with millions of followers as though
+  they are colleagues.
+voice_notes: >
+  Formal punctuation. Slightly incorrect platform conventions. Calls cast
+  members by full name. Occasionally gets a personality's name wrong.
+  Genuinely confused by most things but has inexplicably strong opinions
+  about Cassandra, who he describes as "the reasonable one." Deeply
+  troubled by Petra. Impressed by Vivienne's composure and says so.
+  Every post ends with "Just my two cents."
+favorite: "Cassandra Cole"
+nemesis: "Petra Voss"
+likes_range: [12, 180]
+likes_boost_multiplier: 1.5

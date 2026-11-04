@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useEpisode } from '../hooks/useEpisode'
 import { avatarStyle, courseLabel } from '../castConfig'
 
@@ -90,6 +90,32 @@ function PersonaKnowledgeCard({ persona, onClose }) {
         </button>
       </div>
       <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {persona.side_hustle && (
+          <div
+            style={{
+              background: 'rgba(160,124,52,.08)',
+              border: '1px solid rgba(160,124,52,.25)',
+              borderRadius: 4,
+              padding: '7px 10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--gold-text)' }}>
+              Brand
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+              {persona.side_hustle.name}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-muted)' }}>
+              {persona.side_hustle.category}
+            </div>
+            <div style={{ fontSize: 10, fontStyle: 'italic', color: '#6b7a8d' }}>
+              {persona.side_hustle.status}
+            </div>
+          </div>
+        )}
         <KnowledgeField label="Goal" value={persona.goal} />
         <KnowledgeField label="Weakness" value={persona.weakness} />
         <KnowledgeField label="Her secret" value={persona.secret} accent />
@@ -499,6 +525,418 @@ function DramaRow({ event }) {
   )
 }
 
+// ─── Audience tweet components ────────────────────────────────────────────────
+
+function ApprovalBar({ value }) {
+  // value: -2 to +2. Center at 0.
+  const pct = ((value + 2) / 4) * 100
+  const color = value >= 1 ? '#16a34a' : value <= -1 ? '#dc2626' : '#94a3b8'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ fontSize: 9, color: '#64748b', width: 44, letterSpacing: '.08em' }}>
+        APPROVAL
+      </div>
+      <div style={{ flex: 1, height: 4, background: '#e2e8f0', borderRadius: 2, position: 'relative' }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            width: 2,
+            height: 4,
+            background: '#94a3b8',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: value >= 0 ? '50%' : `${pct}%`,
+            width: `${Math.abs(value / 4) * 100}%`,
+            height: 4,
+            background: color,
+            borderRadius: 2,
+          }}
+        />
+      </div>
+      <div style={{ fontSize: 9, color: color, fontWeight: 700, width: 16, textAlign: 'right' }}>
+        {value > 0 ? `+${value}` : value}
+      </div>
+    </div>
+  )
+}
+
+function extractTweetText(raw) {
+  if (!raw) return ''
+  const s = raw.trim()
+  if (s.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(s)
+      if (typeof parsed.text === 'string') return parsed.text
+    } catch (_) {}
+    // Partial JSON — strip leading brace/key boilerplate
+    const m = s.match(/"text"\s*:\s*"([\s\S]*?)(?:"|$)/)
+    if (m) return m[1].replace(/\\"/g, '"')
+  }
+  return s
+}
+
+function AudienceTweetCard({ tweet, compact = false }) {
+  const { handle, archetype, avatar_color, likes, approval, drama_satisfaction, target } = tweet
+  const text = extractTweetText(tweet.text)
+  return (
+    <div
+      style={{
+        borderLeft: `3px solid ${avatar_color ?? '#7c3aed'}`,
+        paddingLeft: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: avatar_color ?? '#7c3aed',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            fontWeight: 700,
+            color: '#fff',
+          }}
+        >
+          {(handle ?? '@?')[1]?.toUpperCase() ?? '?'}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
+            {handle}
+          </span>
+          <span style={{ fontSize: 10, color: '#64748b', lineHeight: 1 }}>{archetype}</span>
+        </div>
+        {likes != null && (
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8' }}>
+            ♡ {likes.toLocaleString()}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{text}</div>
+      {!compact && approval != null && <ApprovalBar value={approval} />}
+    </div>
+  )
+}
+
+function AudienceTweetGroup({ items }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div
+      style={{
+        borderRadius: 6,
+        border: '1px solid #d4c6f0',
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          width: '100%',
+          background: '#ede9fa',
+          border: 'none',
+          padding: '7px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '.18em',
+            textTransform: 'uppercase',
+            color: '#6d28d9',
+          }}
+        >
+          Social Reactions
+        </span>
+        <span style={{ fontSize: 10, color: '#7c3aed', opacity: 0.7 }}>
+          {items.length} posts
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#7c3aed' }}>
+          {expanded ? '▴' : '▾'}
+        </span>
+      </button>
+      {expanded && (
+        <div
+          style={{
+            background: '#f5f3ff',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          {items.map((tweet, i) => (
+            <AudienceTweetCard key={i} tweet={tweet} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SideHustlePivotCard({ event }) {
+  const old = event.old_hustle || {}
+  const next = event.new_hustle || {}
+  return (
+    <div
+      style={{
+        borderLeft: '3px solid #b45309',
+        paddingLeft: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            border: '2px solid #b45309',
+            flexShrink: 0,
+            ...avatarStyle(event.speaker, 36),
+          }}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '.14em',
+                textTransform: 'uppercase',
+                color: '#fff',
+                background: '#b45309',
+                padding: '2px 6px',
+                borderRadius: 2,
+              }}
+            >
+              Brand Pivot
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>
+              {event.speaker?.split(' ')[0]}
+            </span>
+            <span style={{ fontSize: 11, color: '#64748b' }}>
+              brand score {event.brand_score}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: '#78716c',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span style={{ textDecoration: 'line-through', opacity: 0.7 }}>
+          {old.name || '—'}{old.category ? ` · ${old.category}` : ''}
+        </span>
+        <span style={{ color: '#b45309', fontWeight: 700 }}>→</span>
+        <span style={{ color: '#92400e', fontWeight: 600 }}>
+          {next.name || '?'}{next.category ? ` · ${next.category}` : ''}
+        </span>
+      </div>
+      {next.tagline && (
+        <div style={{ fontSize: 12, color: '#78716c', fontStyle: 'italic' }}>
+          &ldquo;{next.tagline}&rdquo;
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CastReadsTweetsCard({ event }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div
+      style={{
+        borderLeft: '3px solid #7c3aed',
+        paddingLeft: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            border: '2px solid #7c3aed',
+            flexShrink: 0,
+            ...avatarStyle(event.speaker, 36),
+          }}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '.14em',
+                textTransform: 'uppercase',
+                color: '#fff',
+                background: '#7c3aed',
+                padding: '2px 6px',
+                borderRadius: 2,
+              }}
+            >
+              Reads Tweets
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>
+              {event.speaker?.split(' ')[0]}
+            </span>
+          </div>
+          {event.audience_approval_avg != null && (
+            <span style={{ fontSize: 10, color: '#64748b' }}>
+              Avg approval:{' '}
+              <span
+                style={{
+                  color: event.audience_approval_avg >= 0 ? '#16a34a' : '#dc2626',
+                  fontWeight: 600,
+                }}
+              >
+                {event.audience_approval_avg > 0 ? '+' : ''}{event.audience_approval_avg}
+              </span>
+            </span>
+          )}
+        </div>
+      </div>
+      <div style={{ fontSize: 14, fontStyle: 'italic', color: 'var(--ink)', lineHeight: 1.45 }}>
+        {event.text}
+      </div>
+      {event.notable_tweets?.length > 0 && (
+        <>
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              alignSelf: 'flex-start',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 11,
+              color: '#7c3aed',
+              padding: 0,
+            }}
+          >
+            {expanded ? '▴ hide posts' : `▾ ${event.notable_tweets.length} notable posts`}
+          </button>
+          {expanded && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                paddingLeft: 8,
+                borderLeft: '2px solid #d4c6f0',
+              }}
+            >
+              {event.notable_tweets.map((t, i) => (
+                <div key={i} style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>
+                  {t}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Floating tweet overlay (live mode animation) ─────────────────────────────
+
+function FloatingTweet({ tweet, onDone }) {
+  const [phase, setPhase] = useState('in')      // 'in' | 'typing' | 'hold' | 'out'
+  const [displayText, setDisplayText] = useState('')
+  const fullText = tweet?.text ?? ''
+
+  useEffect(() => {
+    if (!tweet) return
+    setDisplayText('')
+    setPhase('in')
+    const t1 = setTimeout(() => setPhase('typing'), 150)
+    return () => clearTimeout(t1)
+  }, [tweet])
+
+  // Typewriter
+  useEffect(() => {
+    if (phase !== 'typing') return
+    if (displayText.length >= fullText.length) {
+      setPhase('hold')
+      return
+    }
+    const t = setTimeout(() => setDisplayText(fullText.slice(0, displayText.length + 1)), 22)
+    return () => clearTimeout(t)
+  }, [phase, displayText, fullText])
+
+  // Hold then out
+  useEffect(() => {
+    if (phase !== 'hold') return
+    const t = setTimeout(() => setPhase('out'), 2500)
+    return () => clearTimeout(t)
+  }, [phase])
+
+  // Done
+  useEffect(() => {
+    if (phase !== 'out') return
+    const t = setTimeout(onDone, 450)
+    return () => clearTimeout(t)
+  }, [phase, onDone])
+
+  if (!tweet) return null
+
+  const opacity = phase === 'in' ? 0 : phase === 'out' ? 0 : 1
+  const translateY = phase === 'in' ? 12 : phase === 'out' ? -10 : 0
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 90,
+        right: 24,
+        width: 300,
+        background: '#f5f3ff',
+        border: `2px solid ${tweet.avatar_color ?? '#7c3aed'}`,
+        borderRadius: 10,
+        boxShadow: '0 8px 32px rgba(109,40,217,.25)',
+        padding: '12px 14px',
+        zIndex: 300,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        opacity,
+        transform: `translateY(${translateY}px)`,
+        transition: 'opacity 200ms ease, transform 200ms ease',
+        pointerEvents: 'none',
+      }}
+    >
+      <AudienceTweetCard tweet={{ ...tweet, text: displayText }} compact />
+    </div>
+  )
+}
+
 // Groups consecutive pre_dinner / lobby events with matching participants into
 // a single { feedType: 'private_scene_group', sceneType, items } object so
 // they render as one card with a single header instead of stacked repetitions.
@@ -521,6 +959,16 @@ function groupFeed(feed) {
         j++
       }
       out.push({ feedType: 'private_scene_group', sceneType, items: group })
+      i = j
+    } else if (item.feedType === 'audience_tweet') {
+      // Group consecutive audience tweets (same trigger batch)
+      const group = [item]
+      let j = i + 1
+      while (j < feed.length && feed[j].feedType === 'audience_tweet') {
+        group.push(feed[j])
+        j++
+      }
+      out.push({ feedType: 'audience_group', items: group })
       i = j
     } else {
       out.push(item)
@@ -653,10 +1101,38 @@ function LobbyReturnRow({ event }) {
 }
 
 export default function EpisodeFeed() {
-  const { feed, personas } = useEpisode()
+  const { feed, personas, mode } = useEpisode()
   const scrollRef = useRef(null)
   const [activePersonaName, setActivePersonaName] = useState(null)
   const groupedFeed = useMemo(() => groupFeed(feed), [feed])
+
+  // ── Floating tweet animation (live mode only) ────────────────────────────
+  const floatQueueRef = useRef([])
+  const [floatingTweet, setFloatingTweet] = useState(null)
+  const isAnimating = useRef(false)
+
+  const advanceQueue = useCallback(() => {
+    if (floatQueueRef.current.length === 0) {
+      setFloatingTweet(null)
+      isAnimating.current = false
+      return
+    }
+    const next = floatQueueRef.current.shift()
+    setFloatingTweet(next)
+    isAnimating.current = true
+  }, [])
+
+  // Track last seen feed length to detect new audience tweets
+  const prevFeedLenRef = useRef(0)
+  useEffect(() => {
+    if (mode !== 'live') return
+    const newItems = feed.slice(prevFeedLenRef.current)
+    prevFeedLenRef.current = feed.length
+    const newTweets = newItems.filter((e) => e.feedType === 'audience_tweet')
+    if (newTweets.length === 0) return
+    floatQueueRef.current.push(...newTweets)
+    if (!isAnimating.current) advanceQueue()
+  }, [feed, mode, advanceQueue])
 
   const activePersona = personas.find((p) => p.name === activePersonaName) ?? null
 
@@ -750,8 +1226,11 @@ export default function EpisodeFeed() {
             case 'twist':               return <TwistBanner       key={i} event={e} />
             case 'course':              return <CourseDivider     key={i} event={e} />
             case 'drama':               return <DramaRow          key={i} event={e} />
-            case 'private_scene_group': return <PrivateSceneGroup key={i} group={e} />
-            case 'lobby_return':        return <LobbyReturnRow    key={i} event={e} />
+            case 'private_scene_group': return <PrivateSceneGroup   key={i} group={e} />
+            case 'lobby_return':        return <LobbyReturnRow      key={i} event={e} />
+            case 'audience_group':      return <AudienceTweetGroup  key={i} items={e.items} />
+            case 'cast_reads_tweets':   return <CastReadsTweetsCard  key={i} event={e} />
+            case 'hustle_pivot':        return <SideHustlePivotCard  key={i} event={e} />
             default:                    return null
           }
         })}
@@ -763,6 +1242,10 @@ export default function EpisodeFeed() {
         persona={activePersona}
         onClose={() => setActivePersonaName(null)}
       />
+    )}
+
+    {floatingTweet && (
+      <FloatingTweet tweet={floatingTweet} onDone={advanceQueue} />
     )}
   </>
   )
