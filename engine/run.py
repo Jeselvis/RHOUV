@@ -354,39 +354,68 @@ def run_reckoning(
 
     transcript_text = "\n".join(transcript)
 
-    judge_system = """You are the audience judge for "The Real Housewives of Uncanny Valley."
-Score each housewife's performance at this dinner on brand value impact.
+    judge_system = """You are the audience judge for "The Real Housewives of Uncanny Valley."  Score each housewife across FIVE dimensions. Each is
+   -4 to +4. They sum to her overall score (-20 to +20).
 
-Criteria: drama generated, memorable lines, damage dealt to others, damage taken,
-and whether she advanced her personal brand or sabotaged it.
+DIMENSIONS:
+1. drama - Did she create memorable show-defining moments?  
+-4=invisible/boring
+0=present but forgettable
++4=iconic, everyone is talking about it
+2. brand - Did she advance her personal narrative or sabotage it?
+-4=destroyed her own position
+0=neutral
++4=masterclass, gained leverage
+3. damage - Net damage dealt vs received (dealt minus received)
+-4=humiliated/exposed with no comeback
+0=broke even
++4=drew blood, target reeling
+4. composure — Did she manage her emotional state well?  Often in opposition to drama or damage score.
+-4=spiraled at worst possible moment,looked weak
+0=held together
++4=used emotion tactically or stayed ice-cold while others broke
+5. fidelity  — Did she behave like her archetype? Her archetype is provided.
+-4=unrecognizable, incoherent with persona
+0=somewhat consistent
++4=every line felt inevitable for this character
 
-SCORING RULES:
-- Scores range from -20 to +20. Use the full range.
-- Underperformers (boring, desperate, exposed, lost composure, hurt image) MUST receive negative scores.
-- Do not give positive scores out of politeness. The audience rewards performance, not participation.
+RULES:
+  - Scores must vary across dimensions. Do not give the same number to all five.
+  - Boring, invisible, or desperate performances MUST score negative on drama.
+  - Participation is not rewarded.
+  - fidelity requires the archetype context — it is provided in the user message.
 
-Respond with ONLY a JSON object — no other text:
-{"score": <integer -20 to +20>, "reason": "<one sentence verdict>"}"""
+  Respond with ONLY a JSON object — no other text:
+  {"drama": <int>, "brand": <int>, "damage": <int>, "composure": <int>, "fidelity": <int>, "score": <sum>, "reason": "<one sentence verdict>"}"""
 
     scoring_events = []
 
     for name in personas:
+        archetype = personas[name].get("archetype", "unknown archetype")
+        tagline = personas[name].get("tagline", "")
+
         messages = [
             {
                 "role": "user",
                 "content": (
-                    f"Here is the dinner transcript:\n\n{transcript_text}\n\n"
-                    f"Score {name}'s performance. Respond with ONLY the JSON object."
+                    f"Personality: {name}\n"
+                      f"Archetype: {archetype}\n"
+                      f"Tagline: {tagline}\n\n"
+                      f"Dinner transcript:\n\n{transcript_text}\n\n"
+                      f"Score {name}'s performance. Respond with ONLY the JSON object."
                 ),
             }
-        ]
+          ]
 
         response = call(MODELS["judge"], judge_system, messages, max_tokens=1024)
-        delta, verdict = _parse_judge_response(response, name)
+
+        delta, verdict, dims = _parse_judge_response(response, name)
 
         event = brand.delta(name, delta, verdict)
         event["judge_raw"] = response
+        event["judge_dims"] = dims
         scoring_events.append(event)
+
         print_event(event)
 
     return scoring_events
@@ -402,22 +431,32 @@ def _parse_judge_response(response: str, name: str) -> tuple[float, str]:
         obj = json.loads(clean)
         score = float(obj["score"])
         reason = str(obj.get("reason", response.strip()[:120]))
-        return score, reason
+
+        dims = {
+            "drama":     obj.get("drama"),
+            "brand":     obj.get("brand"),
+            "damage":    obj.get("damage"),
+            "composure": obj.get("composure"),
+            "fidelity":  obj.get("fidelity"),
+        }
+
+        return score, reason, dims
+    
     except Exception:
         pass
 
     match = re.search(r"([+-]\d+(?:\.\d+)?)\s*[—–\-]+\s*(.+)", response)
-    if match:
-        print(f"  [JUDGE PARSE FALLBACK1] {name}: raw={response.strip()[:80]!r}")
-        return float(match.group(1)), match.group(2).strip()
 
-    fallback = re.search(r"([+-]\d+(?:\.\d+)?)", response)
+    if match:
+        print(f"  [JUDGE PARSE FALLBACK1] {name}:raw={response.strip()[:80]!r}")
+        return float(match.group(1)), match.group(2).strip(), {}
     if fallback:
         print(f"  [JUDGE PARSE FALLBACK2] {name}: raw={response.strip()[:80]!r}")
-        return float(fallback.group(1)), response.strip()[:120]
+        return float(fallback.group(1)), response.strip()[:120], {}
 
     print(f"  [JUDGE PARSE FAILED] {name}: raw={response.strip()[:80]!r}")
-    return 0.0, response.strip()[:120]
+    
+    return 0.0, response.strip()[:120], {}
 
 
 # ─── Episode log ──────────────────────────────────────────────────────────────

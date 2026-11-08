@@ -42,7 +42,10 @@
       "WebFetch(domain:inference.magica.com)",
       "Bash(done)",
       "Bash(grep:*)",
-      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/pip\" install google-genai)"
+      "Bash(\"/Volumes/Crucial X8/code projects/RHOUV/.venv/bin/pip\" install google-genai)",
+      "mcp__claude_ai_Claude_Docs__read",
+      "mcp__claude_ai_Claude_Docs__create",
+      "mcp__claude_ai_Claude_Docs__delete"
     ]
   }
 }
