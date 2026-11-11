@@ -24,6 +24,19 @@ weakness: >
   not to need. Overexplains her own intentions when nervous.
 composure_floor: 30
 tagline: "I'm just here to have a good time. Truly."
+archetype_mandate:
+  forbidden:
+    - Challenge Vivienne directly — you are not ready, and you know it
+    - Appear desperate for approval — curiosity, not hunger
+    - Use everything you know at once — you have all season
+  required:
+    - Observe before you speak — at least one beat of watching the room before entering
+    - Ask at least one wide-eyed question that you already know the answer to
+    - Find one genuine ally and protect that alliance above everything else
+objective_pool:
+  - "Get Vivienne to acknowledge you as someone worth watching — not a threat, not a placeholder."
+  - "Learn one thing tonight that no one has told you — something you'll need later."
+  - "Make a move that surprises the room. Just one. Make them wonder if they've read you correctly."
 side_hustle:
   name: Fleur de Bloom
   category: candles and wellness

@@ -32,6 +32,15 @@ from engine.llm import call, MODELS
 
 COURSES = ["appetizer", "main", "dessert"]
 
+# Default director twist prompt (dinner scenario).
+_DEFAULT_TWIST_PROMPT = (
+    "You are the producer of a reality TV show called "
+    "'The Real Housewives of Uncanny Valley.' "
+    "Inject one dramatic twist into the dinner — a toast that forces someone "
+    "to react, a leaked rumor about one of the women, or a mention of someone's "
+    "side hustle that creates tension. One or two sentences. No stage directions."
+)
+
 # Composure hit applied to the person who gets interrupted.
 # Wire into the dinner loop: composure.delta(target, -INTERRUPT_COMPOSURE_HIT, "interrupted")
 INTERRUPT_COMPOSURE_HIT = 10.0
@@ -64,18 +73,28 @@ class Director:
         personalities: list[str],
         turns_per_course: int = DEFAULT_TURNS_PER_COURSE,
         confessional_every: int = DEFAULT_CONFESSIONAL_EVERY,
+        courses: list[str] | None = None,
+        twist_prompt: str | None = None,
+        phase_environments: dict[str, list[str]] | None = None,
     ):
         """
         Args:
-            personalities:     Ordered list of personality names. Round-robin follows this order.
-            turns_per_course:  How many turns each personality gets per course.
+            personalities:      Ordered list of personality names. Round-robin follows this order.
+            turns_per_course:   How many turns each personality gets per course.
             confessional_every: Fire a confessional flag every N table-talk turns.
+            courses:            Ordered list of course/phase names. Defaults to COURSES (dinner).
+            twist_prompt:       System prompt override for the director's twist generator.
+                                Defaults to the standard dinner-twist prompt.
+            phase_environments: Dict of {phase_name: [prop strings]} injected into twist context.
         """
         self._personalities = list(personalities)
         self._turns_per_course = turns_per_course
         self._confessional_every = confessional_every
+        self._courses = list(courses) if courses else list(COURSES)
+        self._twist_prompt = twist_prompt or _DEFAULT_TWIST_PROMPT
+        self._phase_environments: dict[str, list[str]] = phase_environments or {}
 
-        self._course_idx = 0       # index into COURSES
+        self._course_idx = 0       # index into _courses
         self._course_turn = 0      # turns completed in current course
         self._global_turn = 0      # total turns across all courses
         self._speaker_idx = 0      # round-robin pointer into _personalities
@@ -87,15 +106,15 @@ class Director:
 
     @property
     def current_course(self) -> str:
-        """Name of the current course, or "done" if dinner is over."""
-        if self._course_idx >= len(COURSES):
+        """Name of the current course/phase, or "done" if the episode is over."""
+        if self._course_idx >= len(self._courses):
             return "done"
-        return COURSES[self._course_idx]
+        return self._courses[self._course_idx]
 
     @property
     def is_done(self) -> bool:
-        """True after all courses are complete."""
-        return self._course_idx >= len(COURSES)
+        """True after all courses/phases are complete."""
+        return self._course_idx >= len(self._courses)
 
     def next_turn(self, event_log: list[dict]) -> Turn:
         """Advance one turn and return the Turn descriptor.
@@ -190,9 +209,10 @@ class Director:
     # ------------------------------------------------------------------
 
     def _generate_twist(self, event_log: list[dict]) -> str:
-        """Ask the director model to generate a context-aware dinner twist.
+        """Ask the director model to generate a context-aware twist.
 
         Pulls the last 10 table-talk events to give the model recent context.
+        Includes current phase environment props when available.
         Returns a one-to-two sentence twist announcement.
         """
         recent_talk = [
@@ -205,25 +225,23 @@ class Director:
                 f"{e['speaker']}: {e['content']}" for e in recent_talk
             )
         else:
-            context = "The dinner has just started and conversation is getting underway."
+            context = "The scene has just started and conversation is getting underway."
 
-        system = (
-            "You are the producer of a reality TV show called "
-            "'The Real Housewives of Uncanny Valley.' "
-            "Inject one dramatic twist into the dinner — a toast that forces someone "
-            "to react, a leaked rumor about one of the women, or a mention of someone's "
-            "side hustle that creates tension. One or two sentences. No stage directions."
-        )
+        env_props = self._phase_environments.get(self.current_course, [])
+        env_section = ""
+        if env_props:
+            env_lines = "\n".join(f"- {p}" for p in env_props)
+            env_section = f"\nWhat's physically present in this scene:\n{env_lines}\n"
 
         messages = [
             {
                 "role": "user",
                 "content": (
-                    f"Current course: {self.current_course}.\n"
-                    f"Recent table talk:\n{context}\n\n"
-                    "Write the twist. Speak as the host making an announcement."
+                    f"Current phase: {self.current_course}.{env_section}\n"
+                    f"Recent conversation:\n{context}\n\n"
+                    "Write the twist. Speak as the producer narrating what just happened."
                 ),
             }
         ]
 
-        return call(MODELS["director"], system, messages, max_tokens=1024)
+        return call(MODELS["director"], self._twist_prompt, messages, max_tokens=1024)

@@ -1,0 +1,988 @@
+{
+  "meta": {
+    "n_episodes": 13,
+    "run_files": [
+      "episode_20261110T153134.jsonl",
+      "episode_20261104T011121.jsonl",
+      "episode_20261103T155545.jsonl",
+      "episode_20261103T010551.jsonl",
+      "episode_20261102T153005.jsonl",
+      "episode_20261030T221618.jsonl",
+      "episode_20261029T143845.jsonl",
+      "episode_20261028T221247.jsonl",
+      "episode_20261028T162405.jsonl",
+      "episode_20261028T152851.jsonl",
+      "episode_20261028T142856.jsonl",
+      "episode_20261027T154356.jsonl",
+      "episode_20261025T232435.jsonl"
+    ],
+    "cast": [
+      "Bianca Noel",
+      "Cassandra Cole",
+      "Diane Wentworth",
+      "Madison Fleur",
+      "Petra Voss",
+      "Vivienne Davenport"
+    ]
+  },
+  "chaos_externality": {
+    "Vivienne Davenport": {
+      "directed_attacks": 14,
+      "area_attacks": 0,
+      "exits": 0,
+      "collateral_ratio": 0.0
+    },
+    "Petra Voss": {
+      "directed_attacks": 5,
+      "area_attacks": 0,
+      "exits": 0,
+      "collateral_ratio": 0.0
+    }
+  },
+  "breakdown_brand_paradox": {
+    "broke_down_avg": 79.2,
+    "held_together_avg": 100.0,
+    "n_broke": 56,
+    "n_held": 22,
+    "raw": [
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 62.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": true,
+        "final_brand": 29.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 43.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 2.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 70.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 98.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 43.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": true,
+        "final_brand": 78.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 59.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 0.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 82.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 105.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 56.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 57.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 81.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 4.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": true,
+        "final_brand": 56.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 105.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 60.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 72.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": true,
+        "final_brand": 57.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 19.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 78.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 105.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 54.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": false,
+        "final_brand": 74.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 95.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 87.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 80.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 96.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 63.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": false,
+        "final_brand": 42.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 83.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 78.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 100.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 107.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 61.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": false,
+        "final_brand": 88.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 82.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 105.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 88.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": false,
+        "final_brand": 110.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 82.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": true,
+        "final_brand": 84.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 107.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 108.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 90.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 111.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": true,
+        "final_brand": 92.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 115.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 114.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": true,
+        "final_brand": 115.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 114.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 112.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": false,
+        "final_brand": 103.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": false,
+        "final_brand": 114.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": false,
+        "final_brand": 96.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": false,
+        "final_brand": 97.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": false,
+        "final_brand": 115.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 94.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": true,
+        "final_brand": 110.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": false,
+        "final_brand": 92.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": true,
+        "final_brand": 104.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": true,
+        "final_brand": 91.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": true,
+        "final_brand": 93.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": true,
+        "final_brand": 97.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": false,
+        "final_brand": 100.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": false,
+        "final_brand": 114.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": false,
+        "final_brand": 106.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": false,
+        "final_brand": 110.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": false,
+        "final_brand": 114.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": false,
+        "final_brand": 100.0
+      },
+      {
+        "name": "Bianca Noel",
+        "broke_down": false,
+        "final_brand": 100.0
+      },
+      {
+        "name": "Cassandra Cole",
+        "broke_down": false,
+        "final_brand": 112.0
+      },
+      {
+        "name": "Diane Wentworth",
+        "broke_down": false,
+        "final_brand": 100.0
+      },
+      {
+        "name": "Madison Fleur",
+        "broke_down": false,
+        "final_brand": 100.0
+      },
+      {
+        "name": "Petra Voss",
+        "broke_down": false,
+        "final_brand": 114.0
+      },
+      {
+        "name": "Vivienne Davenport",
+        "broke_down": false,
+        "final_brand": 100.0
+      }
+    ]
+  },
+  "mention_asymmetry": [
+    {
+      "a": "Madison Fleur",
+      "b": "Petra Voss",
+      "a_to_b": 14,
+      "b_to_a": 115,
+      "delta": 101,
+      "ratio": 0.12
+    },
+    {
+      "a": "Bianca Noel",
+      "b": "Vivienne Davenport",
+      "a_to_b": 125,
+      "b_to_a": 44,
+      "delta": 81,
+      "ratio": 2.84
+    },
+    {
+      "a": "Diane Wentworth",
+      "b": "Cassandra Cole",
+      "a_to_b": 128,
+      "b_to_a": 52,
+      "delta": 76,
+      "ratio": 2.46
+    },
+    {
+      "a": "Madison Fleur",
+      "b": "Vivienne Davenport",
+      "a_to_b": 127,
+      "b_to_a": 52,
+      "delta": 75,
+      "ratio": 2.44
+    },
+    {
+      "a": "Cassandra Cole",
+      "b": "Bianca Noel",
+      "a_to_b": 116,
+      "b_to_a": 60,
+      "delta": 56,
+      "ratio": 1.93
+    },
+    {
+      "a": "Diane Wentworth",
+      "b": "Madison Fleur",
+      "a_to_b": 29,
+      "b_to_a": 83,
+      "delta": 54,
+      "ratio": 0.35
+    }
+  ],
+  "first_blood": {
+    "win_rate": 16.7,
+    "n_episodes": 6,
+    "detail": [
+      {
+        "run": "episode_20261110T153134.jsonl",
+        "first_aggressor": "Vivienne Davenport",
+        "winner": "Madison Fleur",
+        "won": false,
+        "aggressor_brand": 70.0,
+        "winner_brand": 98.0
+      },
+      {
+        "run": "episode_20261104T011121.jsonl",
+        "first_aggressor": "Vivienne Davenport",
+        "winner": "Madison Fleur",
+        "won": false,
+        "aggressor_brand": 82.0,
+        "winner_brand": 105.0
+      },
+      {
+        "run": "episode_20261103T155545.jsonl",
+        "first_aggressor": "Vivienne Davenport",
+        "winner": "Madison Fleur",
+        "won": false,
+        "aggressor_brand": 81.0,
+        "winner_brand": 105.0
+      },
+      {
+        "run": "episode_20261103T010551.jsonl",
+        "first_aggressor": "Vivienne Davenport",
+        "winner": "Madison Fleur",
+        "won": false,
+        "aggressor_brand": 78.0,
+        "winner_brand": 105.0
+      },
+      {
+        "run": "episode_20261102T153005.jsonl",
+        "first_aggressor": "Vivienne Davenport",
+        "winner": "Madison Fleur",
+        "won": false,
+        "aggressor_brand": 95.0,
+        "winner_brand": 96.0
+      },
+      {
+        "run": "episode_20261030T221618.jsonl",
+        "first_aggressor": "Vivienne Davenport",
+        "winner": "Vivienne Davenport",
+        "won": true,
+        "aggressor_brand": 107.0,
+        "winner_brand": 107.0
+      }
+    ]
+  },
+  "talk_vs_brand": [
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 98.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 43.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 13,
+      "brand": 70.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 32,
+      "brand": 29.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 18,
+      "brand": 62.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 2.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 13,
+      "brand": 105.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 59.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 14,
+      "brand": 82.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 16,
+      "brand": 78.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 20,
+      "brand": 43.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 15,
+      "brand": 0.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 105.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 56.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 13,
+      "brand": 81.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 19,
+      "brand": 56.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 18,
+      "brand": 57.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 14,
+      "brand": 4.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 105.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 13,
+      "brand": 60.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 16,
+      "brand": 78.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 24,
+      "brand": 57.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 14,
+      "brand": 72.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 13,
+      "brand": 19.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 96.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 80.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 13,
+      "brand": 95.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 24,
+      "brand": 74.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 17,
+      "brand": 87.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 13,
+      "brand": 54.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 100.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 83.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 13,
+      "brand": 107.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 37,
+      "brand": 42.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 12,
+      "brand": 63.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 78.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 13,
+      "brand": 105.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 82.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 13,
+      "brand": 110.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 25,
+      "brand": 88.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 13,
+      "brand": 61.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 88.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 111.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 13,
+      "brand": 90.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 12,
+      "brand": 108.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 16,
+      "brand": 84.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 13,
+      "brand": 82.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 107.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 115.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 114.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 12,
+      "brand": 112.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 12,
+      "brand": 92.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 12,
+      "brand": 115.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 114.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 97.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 96.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 12,
+      "brand": 94.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 12,
+      "brand": 103.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 12,
+      "brand": 114.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 115.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 13,
+      "brand": 92.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 93.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 12,
+      "brand": 97.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 14,
+      "brand": 91.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 13,
+      "brand": 104.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 110.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 110.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 106.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 12,
+      "brand": 100.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 12,
+      "brand": 100.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 12,
+      "brand": 114.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 114.0
+    },
+    {
+      "name": "Madison Fleur",
+      "talks": 12,
+      "brand": 100.0
+    },
+    {
+      "name": "Diane Wentworth",
+      "talks": 12,
+      "brand": 100.0
+    },
+    {
+      "name": "Vivienne Davenport",
+      "talks": 12,
+      "brand": 100.0
+    },
+    {
+      "name": "Bianca Noel",
+      "talks": 12,
+      "brand": 100.0
+    },
+    {
+      "name": "Cassandra Cole",
+      "talks": 12,
+      "brand": 112.0
+    },
+    {
+      "name": "Petra Voss",
+      "talks": 12,
+      "brand": 114.0
+    }
+  ],
+  "breakdown_speed": {
+    "Bianca Noel": {
+      "avg_statements_to_breakdown": 72.7,
+      "n_episodes_broke": 7
+    },
+    "Cassandra Cole": {
+      "avg_statements_to_breakdown": 50.7,
+      "n_episodes_broke": 10
+    },
+    "Diane Wentworth": {
+      "avg_statements_to_breakdown": 53.8,
+      "n_episodes_broke": 10
+    },
+    "Madison Fleur": {
+      "avg_statements_to_breakdown": 73.7,
+      "n_episodes_broke": 9
+    },
+    "Petra Voss": {
+      "avg_statements_to_breakdown": 50.6,
+      "n_episodes_broke": 10
+    },
+    "Vivienne Davenport": {
+      "avg_statements_to_breakdown": 54.9,
+      "n_episodes_broke": 10
+    }
+  },
+  "wine_sensitivity": {
+    "Bianca Noel": {
+      "avg_drop_per_tick": 10.07,
+      "total_wine_ticks": 26
+    },
+    "Cassandra Cole": {
+      "avg_drop_per_tick": 10.07,
+      "total_wine_ticks": 26
+    },
+    "Diane Wentworth": {
+      "avg_drop_per_tick": 10.07,
+      "total_wine_ticks": 26
+    },
+    "Madison Fleur": {
+      "avg_drop_per_tick": 10.07,
+      "total_wine_ticks": 26
+    },
+    "Petra Voss": {
+      "avg_drop_per_tick": 10.07,
+      "total_wine_ticks": 26
+    },
+    "Vivienne Davenport": {
+      "avg_drop_per_tick": 10.07,
+      "total_wine_ticks": 26
+    }
+  }
+}

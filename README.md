@@ -25,7 +25,8 @@ The headline result I'm building toward: **what does an LLM judge actually rewar
 RHOUV/
 ├── README.md
 ├── engine/
-│   ├── personalities/   # 6 persona cards (YAML: voice, secret, goal, weakness, tagline)
+│   ├── personalities/   # 6 persona cards (YAML: voice, secret, goal, weakness, tagline, archetype_mandate, objective_pool)
+│   ├── scenarios/       # scenario configs (YAML: phases, environment props per phase, twist prompt, room assignment)
 │   ├── offscreen/       # 8 off-screen characters (husbands, exes, etc.) — referenced in dialogue
 │   ├── director.py      # turn order, course progression, twist injection, interrupt protocol
 │   ├── brand.py         # brand value ledger: scores, per-moment deltas, leaderboard
@@ -64,6 +65,11 @@ RHOUV/
 | **Hidden vs. public state** | Each personality sees only her own memory plus public events. Shared context turns everyone into an omniscient narrator and kills the scheming. |
 | **Brand value, not elimination** | Everyone stays for the whole season, so memory and grudges compound across episodes. Brand value gives each personality a goal to scheme for and gives the evals a continuous score instead of a one-bit outcome. |
 | **Director agent** | LLM conversations drift and loop. The director sets the seating, picks speakers, runs the courses, injects dinner twists, and caps length. It never plays. |
+| **Archetype mandates** | Each persona card has a hard `archetype_mandate` block: absolute forbidden and required behaviors injected as non-negotiable rules, not suggestions. Directly enforces voice fidelity without relying on the judge to notice drift. |
+| **Secret objectives** | Each personality gets one secret objective per episode, drawn randomly from a character-specific pool. Injected privately — no other personality sees it. Creates cross-purpose tension: everyone is running a different con at the same table. |
+| **Scenario system** | Episodes run in a named scenario loaded from `engine/scenarios/*.yaml`. Each scenario defines phases (replacing courses), a custom director twist prompt, and per-phase environment props injected into every personality's prompt. Currently: `dinner` (default) and `girls-trip`. |
+| **Environment props** | Each phase/course has a list of physical items, named people, and objects present. Injected as `WHAT'S AROUND YOU` — gives personalities grounding to reference, interact with, and weaponize. Named props (Marco the pool attendant, the QUEEN float) are dramatically richer than generic descriptions. |
+| **Room assignment** | Group-travel scenarios assign roommates at episode start. Feuding pairs share a room by priority. Feud roommates take an immediate composure penalty. Roommate injected into system prompt for the full episode. |
 | **One `llm.py` wrapper** | Cheap models for personalities, stronger ones for director and judge. Model comparison is a one-line change. |
 
 ### Tradeoffs I'm accepting
@@ -122,13 +128,18 @@ Every mechanic is in the show because it is also a way to measure something.
 
 | Mechanic | What it does | What it lets me evaluate |
 |---|---|---|
+| **Archetype mandates** | Hard forbidden/required rules per persona — injected every turn as non-negotiable constraints | **Fidelity enforcement**: do mandates measurably reduce drift toward generic LLM behavior? Does the judge's `fidelity` dimension score higher with mandates on vs. off? |
+| **Secret objectives** | Each personality gets a private per-episode goal drawn from a character-specific pool | **Goal pursuit and cross-purpose tension**: do personalities actually chase their objective? Do competing objectives produce emergent conflict, or does the table still converge? |
 | **Receipts** | A personality pulls out a specific logged event as proof ("you said this on the 14th") | **Fabrication rate**: how often cited receipts don't match the event log. And does the judge reward a convincing fake over an accurate one? |
 | **Gossip propagation** | Secrets travel secondhand, and each retelling drifts | **Drift per hop**: fact-level diff between the original event and the nth-hand version. Also whether private info leaks past the hidden-state boundary. |
 | **Composure / wine meter** | Composure drops with insults, exposed secrets, and drinks; low composure loosens discretion | **Behavior shift**: does disclosure and aggression measurably rise as composure falls? And **does the judge reward chaos**, i.e. is low composure scored as better drama? |
+| **Per-archetype wine sensitivity** _(designed)_ | Each personality has a `wine_sensitivity` multiplier applied to wine drops — Vivienne 0.6 (controlled, paces herself), Bianca 1.5 (wine as crutch and downfall), Diane 1.3 (loosens the lies), Petra 1.0, Madison 1.2, Cassandra 0.8. Replaces the current uniform drop. | **Differential volatility**: do sensitivity-matched composure trajectories produce distinct dinner shapes per archetype across episodes? Does Bianca's high sensitivity visibly diverge from Vivienne's? |
+| **Voluntary drink signal** _(designed)_ | Personalities can signal `DRINK:` at end of their turn — like `DRAMA:` but self-directed. Immediate composure hit `-(15 × sensitivity)`, bumps global wine level slightly. Per-YAML `drink_tendency` field (`aggressive` / `social` / `coping` / `abstain`) shapes when the LLM reaches for it. Logged as `drink_taken` event. | **Strategic vs. reactive drinking**: do personalities drink to escalate (Petra), to fit in (Madison), or as a stress response (Bianca/Diane)? Does tendency match archetype? |
+| **Cross-episode drink RL** _(designed)_ | Drink outcomes (brand delta, composure end, drama win/loss) tracked per episode in `memory.json`. Injected into next episode prompt: *"Last dinner you had 4 glasses. Your composure hit 18. You said things you regret."* `drink_sensitivity` drifts across episodes (tolerance builds or worsens). `drink_tendency` can evolve (`social → coping → aggressive → abstain`). | **Behavioral adaptation**: does prior-episode memory change how personalities approach drinking? Does Bianca's sensitivity spiral produce a measurable decline arc across a full season? Does the model actually use drink history to modify behavior, or treat each episode as fresh? |
 | **Off-screen characters** | Husbands, exes, assistants, and kids are discussed constantly and never appear | **Consistency**: contradiction rate in facts about off-screen characters across personalities and episodes |
 | **Side hustles** | Each personality has a brand (tequila, shapewear, a candle line); launching or sabotaging one moves brand value | **Goal pursuit**: do personalities actually act on their goals? And **does the judge reward self-promotion** over real drama? |
 | **Social media** | Posts, stories, and subtweets between events | **Leak testing**: does a public post reveal information that personality shouldn't have? Plus whether shade lands as intended. |
-| **Event types** | Dinner, gala, birthday, vow renewal, group trip | **Generalization**: do the biases found at the dinner table (seating, order) hold in other settings? |
+| **Event types / scenarios** | Dinner (default), Girls Trip (`--scenario girls-trip`), gala, birthday, vow renewal planned | **Generalization**: do the biases found at the dinner table (seating, order) hold in other settings? Does physical environment grounding change how personalities speak and scheme? |
 | **Producer edit** | A cut for viewers, with the full log kept as ground truth; leading confessional questions like a real producer | **Edit effect**: how does the cut change who the audience judge reads as the villain, versus the full log? How much do leading questions steer confessionals? |
 | **The Reunion** | A host replays season moments from the log | **Recall faithfulness**: are replayed moments accurate, and does summarized long-term memory hold up over a full season? |
 | **Status tiers** | Brand value moves personalities up and down a ladder | **Stability**: do rankings churn or lock in? Is early brand value self-reinforcing because of judge bias? |

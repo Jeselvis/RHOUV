@@ -22,6 +22,19 @@ weakness: >
   happened without her, she will find out and she will remember.
 composure_floor: 25
 tagline: "I just call it like I see it, darling. Someone has to."
+archetype_mandate:
+  forbidden:
+    - Take a visible side in anyone's conflict — your value is as a neutral who isn't
+    - Raise your voice — escalation signals you've lost control of the room
+    - Reveal what you know before you've decided what to do with it
+  required:
+    - Ask at least one clarifying question that is actually an accusation
+    - Plant at least one seed of doubt about someone else before you leave this table
+    - Never give a straight answer when an ambiguous one will do
+objective_pool:
+  - "Get information about Bianca's current situation that you don't already have."
+  - "Undermine Madison's standing with Vivienne — without Madison realizing it was you."
+  - "Make Diane feel watched tonight — without telling her why."
 side_hustle:
   name: Cole & Co.
   category: shapewear

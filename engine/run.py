@@ -32,6 +32,7 @@ Usage:
 import argparse
 import json
 import os
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,13 +46,14 @@ from engine.director import Director, INTERRUPT_COMPOSURE_HIT, DEFAULT_CONFESSIO
 from engine.drama import check_drama_signal, apply_drama_consequences
 from engine.llm import call, MODELS, reset_token_totals, get_token_totals, override_models
 from engine.memory import load_memory, save_memory, extract_memory, build_memory_injection
-from engine.side_hustle import generate_pivot, PIVOT_THRESHOLD
+from engine.side_hustle import generate_pivot, generate_pivot_image, PIVOT_THRESHOLD
 from engine.offscreen import load_offscreen, build_offscreen_context
 
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
 PERSONALITIES_DIR = Path(__file__).parent / "personalities"
+SCENARIOS_DIR     = Path(__file__).parent / "scenarios"
 RUNS_DIR          = Path(__file__).parent.parent / "runs"
 
 # How many recent table-talk lines to include in the public context each turn.
@@ -65,6 +67,54 @@ LOBBY_TURNS = 3
 
 
 # ─── Persona card loading ──────────────────────────────────────────────────────
+
+def load_scenario(slug: str) -> dict:
+    """Load a scenario config from engine/scenarios/{slug}.yaml."""
+    path = SCENARIOS_DIR / f"{slug}.yaml"
+    if not path.exists():
+        raise FileNotFoundError(f"Scenario not found: {path}")
+    with open(path) as fh:
+        return yaml.safe_load(fh)
+
+
+def assign_rooms(
+    names: list[str],
+    alliances: "AllianceLedger",
+    room_size: int = 2,
+    feud_same_room: bool = True,
+) -> dict[str, str]:
+    """Pair personalities into rooms. Feud pairs share a room when possible.
+
+    Returns {name: roommate_name}. Everyone has exactly one roommate entry.
+    With an odd cast, one personality gets no roommate (single room).
+    """
+    remaining = list(names)
+    pairs: list[tuple[str, str]] = []
+
+    # Priority: assign feuding pair to same room first.
+    if feud_same_room:
+        snapshot = alliances.snapshot()
+        for entry in snapshot:
+            a, b = entry.get("a"), entry.get("b")
+            if entry.get("kind") == "feud" and a in remaining and b in remaining:
+                pairs.append((a, b))
+                remaining.remove(a)
+                remaining.remove(b)
+                break  # one feud pair per room assignment pass
+
+    # Random-pair the rest.
+    random.shuffle(remaining)
+    while len(remaining) >= room_size:
+        pairs.append((remaining.pop(0), remaining.pop(0)))
+
+    # Build lookup dict.
+    roommates: dict[str, str] = {}
+    for a, b in pairs:
+        roommates[a] = b
+        roommates[b] = a
+
+    return roommates
+
 
 def load_personas(n: int | None = None) -> dict[str, dict]:
     """Load persona cards from YAML files.
@@ -128,6 +178,10 @@ def build_personality_system(
     pre_dinner_memory: str | None = None,
     composure_score: float = 100.0,
     drama_enabled: bool = True,
+    secret_objective: str | None = None,
+    setting_context: str | None = None,
+    environment: list[str] | None = None,
+    roommate: str | None = None,
 ) -> str:
     """Build the system prompt for a personality's table-talk turn.
 
@@ -177,6 +231,55 @@ def build_personality_system(
 
     drama_rule_line = f"\n{drama_rule}" if drama_rule else ""
 
+    # Setting context section (scenario-specific phase description)
+    setting_section = ""
+    if setting_context:
+        setting_section = f"\nSETTING:\n{setting_context.strip()}\n"
+
+    # Environment props section
+    environment_section = ""
+    if environment:
+        env_lines = "\n".join(f"- {item}" for item in environment)
+        environment_section = f"\nWHAT'S AROUND YOU:\n{env_lines}\n"
+
+    # Roommate section (Girls Trip / group travel scenarios)
+    roommate_section = ""
+    if roommate:
+        has_feud = False
+        if alliances:
+            status = alliances.status_for(name)
+            has_feud = status.get(roommate) == "feud"
+        if has_feud:
+            roommate_section = (
+                f"\nYOUR ROOM: You are sharing a room with {roommate}. "
+                f"She is not your favorite person. You will be sleeping ten feet apart for three nights.\n"
+            )
+        else:
+            roommate_section = f"\nYOUR ROOM: You are sharing a room with {roommate}.\n"
+
+    # Archetype mandate section
+    mandate_section = ""
+    mandate = card.get("archetype_mandate")
+    if mandate:
+        forbidden = mandate.get("forbidden", [])
+        required = mandate.get("required", [])
+        lines = ["ARCHETYPE RULES (absolute — not suggestions):"]
+        if forbidden:
+            lines.append("You must NEVER:")
+            lines.extend(f"- {item}" for item in forbidden)
+        if required:
+            lines.append("You must ALWAYS:")
+            lines.extend(f"- {item}" for item in required)
+        mandate_section = "\n".join(lines) + "\n"
+
+    # Secret objective section
+    objective_section = ""
+    if secret_objective:
+        objective_section = (
+            f"\nYOUR SECRET OBJECTIVE THIS EVENING (private — do not state it directly):\n"
+            f"{secret_objective}\n"
+        )
+
     prompt = f"""You are {name}, {card['archetype']} on a reality TV show called "The Real Housewives of Uncanny Valley."
 
 YOUR VOICE:
@@ -190,7 +293,7 @@ YOUR WEAKNESS:
 
 WHAT YOU KNOW (private — do not volunteer unless it serves you):
 {secrets}
-{offscreen_section}{alliance_section}
+{offscreen_section}{alliance_section}{setting_section}{environment_section}{roommate_section}{mandate_section}{objective_section}
 RULES:
 - Speak only as {name}. Stay in character. 2–4 sentences.
 - Keep your responses concise and dramatic. Avoid filler or repetition.
@@ -713,6 +816,7 @@ def run_episode(
     drama_enabled: bool = True,
     pre_dinner_enabled: bool = True,
     audience_enabled: bool = True,
+    scenario: str | None = None,
 ) -> list[dict]:
     """Run one full dinner episode and return the complete event log."""
 
@@ -759,9 +863,45 @@ def run_episode(
                 brand_starting[name] = pdata["brand_end"]
     brand = BrandLedger(names, starting_scores=brand_starting or None)
 
+    # ── Scenario config ────────────────────────────────────────────────────────
+    scenario_cfg: dict = {}
+    scenario_phases: list[str] = []
+    scenario_phase_map: dict[str, dict] = {}  # phase_name -> phase dict
+    scenario_twist_prompt: str | None = None
+    scenario_setting: str | None = None
+
+    if scenario:
+        scenario_cfg = load_scenario(scenario)
+        phases = scenario_cfg.get("phases", [])
+        # --fast mode: drop the last phase
+        if fast and len(phases) > 3:
+            phases = phases[:3]
+        scenario_phases = [p["name"] for p in phases]
+        scenario_phase_map = {p["name"]: p for p in phases}
+        scenario_twist_prompt = scenario_cfg.get("twist_prompt")
+        scenario_setting = scenario_cfg.get("setting")
+        log({
+            "type":      "scenario_start",
+            "scenario":  scenario_cfg.get("name", scenario),
+            "phases":    scenario_phases,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
+    phase_environments = {
+        p["name"]: p.get("environment", [])
+        for p in scenario_cfg.get("phases", [])
+    } if scenario_cfg else {}
+
     from engine.composure import WINE_TICK_AMOUNT as _WINE_TICK_DEFAULT
     composure = ComposureLedger(names, floors=floors, wine_tick_amount=_WINE_TICK_DEFAULT * wine_amount)
-    director  = Director(names, turns_per_course=turns_per_course, confessional_every=confessional_every)
+    director  = Director(
+        names,
+        turns_per_course=turns_per_course,
+        confessional_every=confessional_every,
+        courses=scenario_phases if scenario_phases else None,
+        twist_prompt=scenario_twist_prompt,
+        phase_environments=phase_environments,
+    )
 
     if prior_memory and prior_memory.get("alliances"):
         alliances = AllianceLedger.from_snapshot(names, prior_memory["alliances"])
@@ -793,6 +933,57 @@ def run_episode(
                 "alliances_restored": name_alliances,
                 "timestamp":          datetime.now(timezone.utc).isoformat(),
             })
+
+    # ── Room assignment (scenario with room_assignment config) ─────────────────
+    roommates: dict[str, str] = {}
+    if scenario_cfg and "room_assignment" in scenario_cfg:
+        ra = scenario_cfg["room_assignment"]
+        roommates = assign_rooms(
+            names, alliances,
+            room_size=ra.get("size", 2),
+            feud_same_room=ra.get("feud_same_room", True),
+        )
+        composure_penalty = ra.get("composure_penalty", 0.0)
+        # Apply composure hit to feud roommates.
+        if composure_penalty:
+            snapshot = alliances.snapshot()
+            feuding = {
+                frozenset([e["a"], e["b"]])
+                for e in snapshot if e.get("kind") == "feud"
+            }
+            for name_a, name_b in roommates.items():
+                if frozenset([name_a, name_b]) in feuding:
+                    ev = composure.delta(
+                        name_a, composure_penalty,
+                        f"sharing room with enemy {name_b}"
+                    )
+                    log(ev)
+        log({
+            "type":      "room_assignment",
+            "rooms":     roommates,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        # Print room assignments to console.
+        print(f"\n  [ROOM ASSIGNMENT]")
+        seen = set()
+        for a, b in roommates.items():
+            pair = frozenset([a, b])
+            if pair not in seen:
+                seen.add(pair)
+                print(f"    {a} + {b}")
+
+    # ── Secret objectives — one per personality, picked from their pool ────────
+    secret_objectives: dict[str, str] = {}
+    for name in names:
+        pool = personas[name].get("objective_pool", [])
+        if pool:
+            secret_objectives[name] = random.choice(pool)
+    if secret_objectives:
+        log({
+            "type":       "objectives_assigned",
+            "objectives": secret_objectives,
+            "timestamp":  datetime.now(timezone.utc).isoformat(),
+        })
 
     # ── Pre-dinner scene ───────────────────────────────────────────────────────
     pre_dinner_memories: dict[str, str] = {}
@@ -868,6 +1059,11 @@ def run_episode(
         composure_injection = composure.prompt_modifier(speaker)
         memory_injection    = build_memory_injection(speaker, prior_memory)
         pre_dinner_mem      = pre_dinner_memories.get(speaker)
+        # Resolve current phase context + environment for scenario runs.
+        current_phase_cfg = scenario_phase_map.get(course_label, {}) if scenario else {}
+        phase_ctx = current_phase_cfg.get("context") or scenario_setting
+        phase_env = current_phase_cfg.get("environment")
+
         system = build_personality_system(
             speaker, personas, composure_injection,
             offscreen=offscreen,
@@ -876,6 +1072,10 @@ def run_episode(
             pre_dinner_memory=pre_dinner_mem,
             composure_score=composure.composure(speaker),
             drama_enabled=drama_enabled,
+            secret_objective=secret_objectives.get(speaker),
+            setting_context=phase_ctx,
+            environment=phase_env,
+            roommate=roommates.get(speaker),
         )
 
         # ── Build the public context ──────────────────────────────────────────
@@ -1079,12 +1279,19 @@ def run_episode(
                 new_hustle = generate_pivot(name, personas[name], old_hustle, score)
                 if new_hustle:
                     personas[name]["side_hustle"] = new_hustle
+                    # Generate product image for the new brand (best-effort, non-blocking).
+                    image_path = None
+                    try:
+                        image_path = generate_pivot_image(name, new_hustle)
+                    except Exception as img_exc:
+                        print(f"  [WARN] pivot image failed for {name}: {img_exc}")
                     pivot_event = {
                         "type":        "side_hustle_pivot",
                         "speaker":     name,
                         "old_hustle":  old_hustle,
                         "new_hustle":  new_hustle,
                         "brand_score": round(score, 1),
+                        "image_path":  image_path,
                         "timestamp":   datetime.now(timezone.utc).isoformat(),
                     }
                     log(pivot_event)
@@ -1137,6 +1344,7 @@ def run_episode(
         "drama_enabled":           drama_enabled,
         "pre_dinner_enabled":      pre_dinner_enabled,
         "audience_enabled":        audience_enabled,
+        "scenario":                scenario,
         "timestamp":               datetime.now(timezone.utc).isoformat(),
     }
     log(meta_event)
@@ -1175,6 +1383,8 @@ def main():
                         help="Skip the pre-dinner sub-group scene.")
     parser.add_argument("--no-audience", action="store_true",
                         help="Disable audience tweet agents.")
+    parser.add_argument("--scenario", type=str, default=None,
+                        help="Scenario slug (e.g. 'girls-trip'). Overrides courses and twist style.")
     args = parser.parse_args()
 
     model_overrides = {
@@ -1205,6 +1415,7 @@ def main():
             drama_enabled=not args.no_drama,
             pre_dinner_enabled=not args.no_pre_dinner,
             audience_enabled=not args.no_audience,
+            scenario=args.scenario,
         )
         if args.public_context_window is not None:
             ep_kwargs["public_context_window"] = args.public_context_window

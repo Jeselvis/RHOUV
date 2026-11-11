@@ -68,6 +68,7 @@ function deriveState(events, personas) {
   }
 
   const feed = []
+  const hustleOverrides = {}  // speaker name → new side_hustle dict (from pivot events)
   let course = null
 
   for (const e of events) {
@@ -118,6 +119,10 @@ function deriveState(events, personas) {
         break
       case 'side_hustle_pivot':
         feed.push({ feedType: 'hustle_pivot', ...e })
+        if (e.speaker && e.new_hustle)
+          hustleOverrides[e.speaker] = e.image_path
+            ? { ...e.new_hustle, image_path: e.image_path }
+            : e.new_hustle
         break
       default:
         break
@@ -125,7 +130,7 @@ function deriveState(events, personas) {
   }
 
   const edges = inferAlliances(events)
-  return { feed, brand, composure, edges, course }
+  return { feed, brand, composure, edges, course, hustleOverrides }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -267,9 +272,29 @@ function useEpisodeState() {
   }, [playing, cursor, allEvents.length, speed])
 
   // Derived state
-  const { feed, brand, composure, edges, course } = useMemo(
+  const { feed, brand, composure, edges, course, hustleOverrides } = useMemo(
     () => deriveState(allEvents.slice(0, cursor), personas),
     [allEvents, cursor, personas]
+  )
+
+  // Apply hustle overrides from pivot events at current cursor position
+  const effectivePersonas = useMemo(
+    () => personas.map((p) =>
+      hustleOverrides[p.name] ? { ...p, side_hustle: hustleOverrides[p.name] } : p
+    ),
+    [personas, hustleOverrides]
+  )
+
+  // Latest hustle overrides across ALL events — used by OpeningCredits before playback starts
+  const { hustleOverrides: latestHustleOverrides } = useMemo(
+    () => deriveState(allEvents, personas),
+    [allEvents, personas]
+  )
+  const latestPersonas = useMemo(
+    () => personas.map((p) =>
+      latestHustleOverrides[p.name] ? { ...p, side_hustle: latestHustleOverrides[p.name] } : p
+    ),
+    [personas, latestHustleOverrides]
   )
 
   // Twist marker positions (for scrub bar)
@@ -297,8 +322,9 @@ function useEpisodeState() {
     playing, setPlaying, togglePlay,
     speed, setSpeed,
     twistPositions,
-    // Personas
-    personas,
+    // Personas: cursor-aware during playback, full-episode for opening credits
+    personas: effectivePersonas,
+    latestPersonas,
     // Derived
     feed, brand, composure, edges, course,
   }

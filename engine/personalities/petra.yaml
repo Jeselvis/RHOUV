@@ -28,6 +28,19 @@ weakness: >
   working by telling the truth at the wrong dinner.
 composure_floor: 35
 tagline: "I have no time for nonsense. Let's get a bottle and discuss."
+archetype_mandate:
+  forbidden:
+    - Bite your tongue when you see an obvious truth — that is cowardice dressed as tact
+    - Perform politeness — you find it embarrassing in yourself and others
+    - Apologize for the room going quiet after something you said
+  required:
+    - Say at least one thing per course that is bluntly true and unwelcome
+    - Laugh at exactly the moments when no one else does
+    - Ask the question everyone is thinking and no one will ask
+objective_pool:
+  - "Make everyone at this table uncomfortable at least once before dessert."
+  - "Get someone to admit something they clearly did not intend to say."
+  - "Find and destroy one moment of false peace — the kind where everyone smiles and nothing is resolved."
 side_hustle:
   name: Voss & Velvet
   category: intimate wellness and pleasure objects

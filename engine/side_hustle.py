@@ -10,8 +10,14 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
+from pathlib import Path
 
-from engine.llm import call, MODELS
+import httpx
+
+from engine.llm import call, MODELS, generate_image
+
+BRAND_IMAGES_DIR = Path(__file__).parent.parent / "web" / "public" / "brand_images"
 
 PIVOT_THRESHOLD = 50  # brand score below which a pivot triggers
 
@@ -69,3 +75,48 @@ def generate_pivot(
     except Exception as exc:
         print(f"  [WARN] side hustle pivot LLM failed for {name}: {exc}")
         return None
+
+
+def generate_pivot_image(name: str, hustle: dict) -> str | None:
+    """Generate a product image for a new pivot brand. Returns web-relative path or None.
+
+    Builds a product photography prompt from the hustle name/category/tagline,
+    generates via Magica image API, downloads to web/public/brand_images/,
+    returns the path as a web-relative URL (/brand_images/filename.jpg).
+    """
+    brand_name = hustle.get("name", "new brand")
+    category   = hustle.get("category", "product")
+    tagline    = hustle.get("tagline", "")
+
+    prompt = (
+        f"Professional product photography for a luxury lifestyle brand called '{brand_name}'. "
+        f"Product category: {category}. "
+        f"{'Tagline: ' + tagline + '. ' if tagline else ''}"
+        "Glossy magazine advertisement aesthetic, aspirational, slightly over-the-top reality TV energy. "
+        "Soft warm lighting, clean minimal white or cream background, high-end retail feel. "
+        "No text overlay. No logos. Product only."
+    )
+
+    print(f"  [IMAGE] Generating brand image for {name} → {brand_name}…")
+    cdn_url = generate_image(prompt, resolution="512", output_format="JPEG")
+    if not cdn_url:
+        print(f"  [IMAGE] Generation failed for {name}")
+        return None
+
+    # Download and save locally.
+    ts   = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    slug = name.lower().replace(" ", "_")
+    filename = f"{slug}_{ts}.jpg"
+    dest = BRAND_IMAGES_DIR / filename
+
+    try:
+        BRAND_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        with httpx.Client(timeout=30) as client:
+            img_resp = client.get(cdn_url)
+            img_resp.raise_for_status()
+            dest.write_bytes(img_resp.content)
+        print(f"  [IMAGE] Saved → {dest}")
+        return f"/brand_images/{filename}"
+    except Exception as exc:
+        print(f"  [IMAGE] Download/save failed for {name}: {exc}")
+        return cdn_url  # fall back to CDN URL if local save fails

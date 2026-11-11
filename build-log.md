@@ -2,6 +2,149 @@
 
 ---
 
+## 2026-11-10 — Drink system design (implementation pending)
+
+**What:** Three-layer design for wine/drink mechanics that go beyond the current uniform composure drop. Not yet implemented — documented here as a design decision before build.
+
+---
+
+**Layer 1 — Per-archetype wine sensitivity**
+
+Current `wine_tick()` applies an identical composure drop to everyone. That is wrong in the same way that giving every personality the same composure floor would be wrong. The whole point of `composure_floor` is that Petra is structurally more volatile than Vivienne. Wine sensitivity extends that logic to the *rate of degradation*, not just the floor.
+
+Proposed `wine_sensitivity` multiplier per YAML, applied as `drop * sensitivity` per personality during `wine_tick()`:
+
+| Name | Sensitivity | Rationale |
+|---|---|---|
+| Vivienne | 0.6 | Control is the brand. She paces herself. Drunk Vivienne is a catastrophic failure of self-image. |
+| Cassandra | 0.8 | Strategic drinker. Never loses the edge. Composure degradation happens on her schedule. |
+| Bianca | 1.5 | Wine is both crutch and downfall. The former it-girl decline arc is a wine arc. |
+| Diane | 1.3 | Loosens the lies. The cracks in the peacemaker appear faster when she drinks. |
+| Petra | 1.0 | Already chaos. Wine is just confirmation. |
+| Madison | 1.2 | Drinks to fit in. Hits her harder than she expects. |
+
+Implementation: add `wine_sensitivity: float` to each YAML. `ComposureLedger.wine_tick()` applies `drop * self._sensitivities.get(name, 1.0)` per personality instead of flat drop. Minimal change.
+
+---
+
+**Layer 2 — Voluntary drink signal (`DRINK:`)**
+
+Like `DRAMA:` — parsed and stripped from public speech, logged as a `drink_taken` event with immediate mechanical effect. Personality signals `DRINK:` at end of their turn.
+
+Effects:
+- Immediate composure drop: `-(15 * wine_sensitivity)` — hits the heavy drinkers harder
+- Bumps global wine level `+5` — her refill raises the room slightly
+- Logged as `drink_taken` event with composure snapshot
+
+Each YAML gets a `drink_tendency` field: `aggressive` / `social` / `coping` / `abstain`. Injected into the turn prompt to shape when the LLM reaches for it:
+
+| Tendency | Prompt injection |
+|---|---|
+| `aggressive` | *"You drink offensively — to signal you don't care, to loosen your tongue, to go there."* |
+| `social` | *"You drink socially — to match the room, to ease in, to belong."* |
+| `coping` | *"You drink to manage — to take the edge off, to get through it."* |
+| `abstain` | *"You are not drinking tonight. You have your reasons."* |
+
+Proposed per YAML: Petra `aggressive`, Diane `coping`, Madison `social`, Bianca `coping`, Cassandra `social`, Vivienne `abstain` (she nurses one glass all evening; this is power).
+
+Prompt injection offered every turn (all scenarios):
+> *You may order another glass. Signal `DRINK:` at the end of your statement. Wine loosens the room. It will cost you.*
+
+Implementation: `check_drink_signal()` in `engine/drama.py` or new `engine/drink.py`. Parsed in dinner loop after DRAMA check.
+
+---
+
+**Layer 3 — Cross-episode drink RL**
+
+The most interesting layer. After each episode, drink outcomes stored in `memory.json`:
+
+```json
+"Bianca Noel": {
+  "drink_history": [
+    {"episode": 3, "drinks": 4, "brand_end": 42, "composure_end": 18, "drama_wins": 1, "drama_losses": 2}
+  ],
+  "drink_sensitivity": 1.5,
+  "drink_tendency": "coping"
+}
+```
+
+**Prompt injection (episode start):** `build_memory_injection()` reads drink history and injects:
+> *"Last dinner you had 4 glasses. Your composure hit 18. You said things you regret. The room saw it."*
+
+LLM reasons about whether to drink this episode. No forced behavior — memory shapes the decision.
+
+**Mechanical drift:** `drink_sensitivity` updates in memory based on cross-episode outcome patterns:
+
+| Pattern | Drift |
+|---|---|
+| Drinks a lot + brand holds across 2+ episodes | Tolerance building: sensitivity `- 0.05` (floor ~0.4) |
+| Drinks a lot + brand craters | Dependency spiral: sensitivity `+ 0.08` (cap ~2.0) |
+| Abstains 2+ episodes | Reset toward YAML baseline |
+
+Bianca's decline arc writes itself. Sensitivity climbs each episode, she keeps drinking anyway (the prompt history makes her aware but not able to stop), composure collapses faster each time.
+
+**Tendency evolution:** `drink_tendency` can shift in memory based on outcomes:
+- `social → coping` after two episodes of drinking-and-losing
+- `coping → aggressive` after a confrontation won while drinking
+- `aggressive → abstain` after a catastrophic episode
+
+Transitions injected as self-awareness: *"You've been using wine as a shield lately. You know it."*
+
+Implementation: `engine/memory.py` extract step adds drink stats. `build_memory_injection()` formats drink context. `drink_sensitivity` and `drink_tendency` stored and read from `runs/memory.json`.
+
+**Why this matters as an eval:** This is the only mechanic in the engine where behavioral adaptation happens through memory and mechanical drift simultaneously. The RL question — does prior-episode history change how the LLM makes decisions? — is cleanest here because the decision (drink or not) is binary, the outcome (brand/composure) is numeric, and the history injection is explicit. If the model ignores the history injection and Bianca keeps drinking to ruin regardless of what her history says, that is a meaningful finding about how LLMs use injected self-knowledge.
+
+---
+
+## 2026-11-10 — Scenario system + Girls Trip
+
+**What:** Abstracted episode structure into a scenario config layer, plus the first non-dinner scenario: Girls Trip (Cabo).
+
+**Scenario config (`engine/scenarios/*.yaml`):** Each scenario defines `phases` (replaces hardcoded `COURSES`), a `twist_prompt` for the director, `setting` text injected globally, and per-phase `environment` prop lists. `room_assignment` config block controls roommate pairing and composure penalties. `girls_trip.yaml` has 4 phases: `arrival`, `pool_day`, `group_dinner`, `late_night`. `--fast` mode uses the first 3.
+
+**Environment props:** Each phase lists named physical items and people present — injected into every personality's system prompt as `WHAT'S AROUND YOU`. Named specifics (Marco the pool attendant, Diane's wine label showing up at the pool she requested, the QUEEN float, Madison's brand-new luggage with tags still on) are dramatically richer than generic scene-setting and give the LLM concrete objects to reference, fight over, and weaponize.
+
+**Room assignment:** `assign_rooms()` pairs personalities, feud pairs sharing a room by priority. Feuding roommates take an immediate composure penalty at episode start. Roommate name + context injected into system prompt for the full episode.
+
+**Director refactored:** `Director.__init__()` now accepts `courses`, `twist_prompt`, and `phase_environments` — all optional, all defaulting to existing dinner behavior. `_generate_twist()` uses the injected prompt and appends current phase environment to its context. No behavior change for dinner runs.
+
+**`run.py` additions:** `load_scenario()`, `assign_rooms()`, `--scenario` CLI flag, `scenario` param on `run_episode()`. `build_personality_system()` gains `setting_context`, `environment`, `roommate` params. `run_meta` event records `scenario` slug.
+
+New files: `engine/scenarios/girls_trip.yaml`. Modified: `engine/director.py`, `engine/run.py`.
+
+CLI:
+```bash
+# Girls Trip, full cast
+.venv/bin/python3.12 -m engine.run --scenario girls-trip
+
+# Girls Trip, fast (3 phases, 4 cast)
+.venv/bin/python3.12 -m engine.run --scenario girls-trip --fast --personalities 4
+```
+
+**Why:** The dinner table is a highly constrained environment that produces specific bias patterns — seating order, turn order, the same three courses. The eval question "do biases at the dinner table hold in other settings?" requires other settings to actually exist. Girls Trip is the first test of generalization: same personalities, different physical context, group-living proximity instead of formal seating. The environment prop system addresses a prompt-grounding gap — without named objects and people in the scene, personalities float in an abstract space and default to generic conversational patterns. Marco and the QUEEN float are not decoration; they are drama vectors the LLM can grab when it needs a move.
+
+Room assignment is a structural forcing function. A feuding pair sharing a room for three nights has composure pressure built in before anyone says a word.
+
+---
+
+## 2026-11-10 — Archetype mandates + secret objectives
+
+**What:** Two prompt-layer additions targeting persona fidelity and cross-purpose tension.
+
+**Archetype mandates** — each persona YAML now has an `archetype_mandate` block with explicit `forbidden` and `required` lists. These are injected into every turn's system prompt as absolute rules (labeled "not suggestions"), not soft guidance. Examples: Vivienne must never raise her voice first; Petra must ask the question everyone is thinking and no one will ask; Cassandra must never take a visible side. The mandate section sits between the alliances block and the RULES block in prompt assembly order, so it has high positional salience.
+
+**Secret objectives** — each persona YAML has an `objective_pool` list of 3 character-specific goals. At episode start, `run_episode()` picks one per personality at random and injects it privately as `YOUR SECRET OBJECTIVE THIS EVENING`. No other personality sees it. Logged as an `objectives_assigned` event (private, not in public context). Examples: Bianca's objective is to get someone to reference her modeling years without prompting; Diane's is to prevent any alliance from forming that doesn't include her; Petra's is to find and destroy one moment of false peace.
+
+Modified: all 6 `engine/personalities/*.yaml`, `engine/run.py` (`build_personality_system()` gains `secret_objective` param; `run_episode()` assigns objectives from pool using `random.choice`). Added `import random` to `run.py`.
+
+**Why:** Two identified eval gaps, both addressed here.
+
+The **fidelity gap** — no ground truth for "is this character behaving correctly" — is partially a measurement problem, but it's also a generation problem. The judge's `fidelity` dimension scores whether each turn felt inevitable for the archetype, but the persona cards were written as descriptive prose, not behavioral constraints. Descriptive voice prompts drift toward generic LLM tone over multi-turn context, especially at high composure where no other injection is present. Hard forbidden/required rules don't fix the measurement gap, but they directly reduce the drift that makes the gap matter. If mandates are working, `fidelity` scores should rise and variance should drop.
+
+The **cross-purpose tension gap** — personalities reacting to the same context tend to converge, producing pile-ons instead of competing agendas. Secret objectives give each personality a private win condition that is incompatible with others' objectives (Diane prevents alliances forming without her; Madison needs to form one; Cassandra wants to undermine Madison with Vivienne; Vivienne wants to maintain indifference toward Madison). The eval question is whether objectives produce emergent cross-cutting tension or whether personalities ignore them under pressure from table context. The `objectives_assigned` event logs what each personality was given, so post-hoc analysis can check objective-chasing rate.
+
+---
+
 ## 2026-10-28 — Physical escalation, lobby, pre-dinner
 
 **What:** Free-form `DRAMA:` signal at end of turn (classified into `targeted`/`area`/`exit`/`scene` by keyword). Feud-aware prompt weighting — no active feud makes drama feel nearly off-limits; active feud at low composure makes it available. `exit` sets personality absent for 3 turns; if lobby already occupied, triggers private 2-person mini-loop (`lobby_talk` events, not in public context). Pre-dinner sub-group scene runs before main dinner with 2 selected personalities; results injected as private memory into their dinner prompts. Feed card line-break fix: action lines (`*throws wine*`) now render as separate paragraphs instead of running together.

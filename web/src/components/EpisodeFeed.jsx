@@ -761,6 +761,20 @@ function SideHustlePivotCard({ event }) {
           &ldquo;{next.tagline}&rdquo;
         </div>
       )}
+      {event.image_path && (
+        <img
+          src={event.image_path}
+          alt={next.name}
+          style={{
+            width: '100%',
+            height: 140,
+            objectFit: 'cover',
+            borderRadius: 4,
+            marginTop: 2,
+            display: 'block',
+          }}
+        />
+      )}
     </div>
   )
 }

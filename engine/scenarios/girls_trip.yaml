@@ -1,0 +1,97 @@
+name: Girls Trip
+slug: girls-trip
+
+# Injected into every personality's system prompt as the opening SETTING line.
+setting: >
+  You are not at a dinner party. You are on a group trip — 72 hours in a rented
+  villa in Cabo San Lucas with these same women, no husbands, no assistants, no
+  controlled environment. The absence of your usual routine strips away some of
+  your armor. Everything is closer here. There is nowhere to go that isn't
+  ten feet from someone who knows too much about you.
+
+# Twist prompt replaces the standard dinner-twist prompt for the director.
+twist_prompt: >
+  You are the producer of a reality TV show called 'The Real Housewives of
+  Uncanny Valley.' The cast is on a group trip together in Cabo San Lucas.
+  Inject one dramatic twist into the trip — something overheard through a villa
+  wall, a paparazzo spotted at the pool, an ex or someone's enemy staying at the
+  same resort, a text message someone sees they were not meant to see, a photo
+  from the pool day that surfaces on social media, or a revelation about why
+  someone really wanted this trip. Use the physical environment and the specific
+  people present. One or two sentences. Speak as the producer narrating what
+  just happened, as if read aloud to the cast.
+
+# Room assignment rules.
+room_assignment:
+  size: 2            # personalities per room
+  feud_same_room: true   # if a feuding pair exists, they share a room
+  composure_penalty: -10  # applied immediately to both feud roommates at episode start
+
+# If --fast, use only the first 3 phases (skip late_night).
+phases:
+
+  - name: arrival
+    label: "Day 1 — Arrival"
+    context: >
+      You have just arrived at the villa. The bags are still piled in the foyer.
+      The villa manager is doing a tour no one is fully paying attention to.
+      Everyone is performing excitement while quietly clocking who gets what room.
+      The first night is cocktails on the terrace — no agenda, which is the
+      most dangerous possible agenda.
+    environment:
+      - "A five-bedroom villa — which means three rooms of two. The best room has an ocean view, en-suite bath, and a king bed. Everyone knows which one it is."
+      - "Cassandra arrived first and already has her bags upstairs. She has not said which room."
+      - "Welcome champagne chilling on the terrace. Veuve. Diane made a point of noting it is not Wentworth Estate and offered to fix that."
+      - "Madison's luggage is visibly new — several tags still attached. She left one on deliberately. She thinks it reads as aspirational. It reads as nervous."
+      - "A villa WhatsApp group was created for the trip. Someone has already muted it. Someone has screenshot the member list."
+      - "The villa manager, Rodrigo, is trying to explain the pool heater controls to a group of women who are not listening to him."
+
+  - name: pool_day
+    label: "Day 2 — Pool Day"
+    context: >
+      Second day. Everyone is by the pool. It is 85 degrees and the rosé has
+      been open since noon. Swimsuits, sunglasses, and three hours in which
+      there is nothing to do but talk. Guards are down in some places and
+      raised in others. The pool is a confessional with better lighting.
+    environment:
+      - "An infinity pool overlooking the Pacific. Very Instagram. Someone will post and someone will be upset they were not warned."
+      - "Marco — the villa's pool attendant, early 30s, Portuguese, annoyingly attentive and visibly unbothered by the dynamic at the pool."
+      - "Three open bottles of rosé on a floating tray. Diane's label — Wentworth Estate — was specifically requested for this trip. By Diane. She mentioned it twice on the drive from the airport."
+      - "A flamingo float, a swan float, and one that reads QUEEN in gold letters. The QUEEN float was claimed early. This has not been forgotten."
+      - "A photographer from a lifestyle blog who showed up 'at the resort' — press pass, wide-angle lens, technically not on the villa property. No one will admit to knowing he was coming."
+      - "Petra ordered a full bottle of Clase Azul from Marco at 11:45am. It arrived. No one commented. Everyone noticed."
+      - "Bianca's swimsuit is from a shoot she did in 2019. She has mentioned this. It still fits. She has mentioned this also."
+
+  - name: group_dinner
+    label: "Day 2 — Group Dinner Out"
+    context: >
+      You are at a restaurant in town tonight — not the private villa, a real
+      public restaurant. Other diners are present. The street outside has foot
+      traffic. This is a performance space, and everyone knows it.
+      The pool day's conversations are still live. Composure is on display but
+      the afternoon's wine is still doing its work underneath.
+    environment:
+      - "Manta — the best restaurant in Cabo, terrace seating, water view. The reservation was difficult to get. Diane got it. She mentioned this."
+      - "Wentworth Estate is on the wine list. This was not an accident. Diane ordered it before anyone sat down."
+      - "A table of four men nearby — finance type, mid-forties, clearly on a boys trip. They have made eye contact with the group twice."
+      - "A woman at the bar who Vivienne knows. They have not acknowledged each other. Everyone has noticed."
+      - "Madison's phone has been face-down since they sat down. This is unusual. Cassandra has noticed."
+      - "The restaurant has a photographer circulating for 'table memories.' He is about to reach their table."
+      - "Petra has ordered the most expensive bottle on the menu. She always does. Gary the accountant will find out eventually."
+
+  - name: late_night
+    label: "Day 2 — Late Night"
+    context: >
+      Past midnight. The dinner ended — well or badly, depending on who you ask,
+      and everyone would answer differently. You are at the hotel bar.
+      No one has gone to bed. Everything that was held back today has been
+      accumulating for hours and the bar is where it comes out.
+      At this hour, in this light, with this much wine, the filter is optional.
+    environment:
+      - "The hotel bar — low lighting, good sound system, a bartender named Felix who has seen everything and will see more tonight."
+      - "One empty barstool between Vivienne and Petra. It has been empty for forty minutes. No one has sat in it."
+      - "Madison's phone is now face-up. The notifications have stopped. She put it away too quickly when Cassandra looked."
+      - "A bottle of tequila someone ordered that no one agreed to split. It is half-empty. The bill has not been discussed."
+      - "Bianca is on her third glass of something she told Felix was just water. Felix did not confirm this."
+      - "The men from the restaurant are at the other end of the bar. Two of them have moved closer. Diane has not moved away."
+      - "Someone left their room key on the bar. It has been there for twenty minutes. No one has claimed it."

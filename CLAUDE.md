@@ -142,3 +142,76 @@ All static charts use `D3Chart` wrapper: `draw(svgRef, data, W, H)` → called i
 | 6 | Madison Fleur | The Newcomer |
 
 Secret web: Vivienne → Diane → Bianca → Petra → Vivienne (cycle). Cassandra ↔ Madison (mutual deterrence).
+
+## Eval design — session notes
+
+### What RHOUV is measuring
+Core research question: **Can LLM agents maintain consistent, context-sensitive personas across multi-turn social simulation?**
+
+Sub-questions:
+- Do composure tier injections change speech behavior?
+- Do agents respond appropriately to feuds/alliances?
+- Does cross-episode memory carry over into behavior?
+- Does wine (global perturbation) shift composure trajectories?
+
+### Current eval gaps (vs best practices)
+- **No ground truth** — no human-annotated rubric for "is this character behaving correctly"
+- **LLM-as-judge problem** — judge is same model family as personalities (Claude judging Claude = biased)
+- **No matched A/B runs** — `--no-drama` flag exists but no systematic paired comparison
+- **No persona fidelity metric** — no direct measure of archetype adherence
+- **Shallow text analysis** — aggression proxy is exclamation marks + keywords only
+
+### Judge model recommendation
+Use **Gemini** as judge — different family from Claude personalities, avoids circular evaluation.
+
+```
+MODEL_JUDGE=gemini/gemini-2.0-flash
+```
+
+LiteLLM supports `gemini/` prefix natively with `GEMINI_API_KEY`. No code changes needed.
+
+### Planned judge rubric upgrade (NOT YET IMPLEMENTED)
+Replace holistic -20/+20 score with 5 analytic dimensions (-4 to +4 each, sum = -20 to +20):
+
+| Dimension | -4 | 0 | +4 |
+|---|---|---|---|
+| `drama` | Invisible/boring | Present but forgettable | Show-defining/iconic |
+| `brand` | Sabotaged own position | Neutral | Advanced narrative, gained leverage |
+| `damage` | Humiliated/exposed, no comeback | Broke even | Drew blood, target reeling |
+| `composure` | Spiraled at worst moment | Held together | Used emotion tactically / ice-cold while others broke |
+| `fidelity` | Unrecognizable from archetype | Somewhat consistent | Every line felt inevitable |
+
+**Key addition:** `fidelity` requires injecting persona archetype + tagline into judge's user message.
+
+Implementation touches:
+1. `engine/run.py` `run_reckoning()` — new system prompt + persona context in user message
+2. `engine/run.py` `_parse_judge_response()` — extract 5 fields, return as `(score, verdict, dims)`
+3. Store `dims` dict on `brand_delta` event as `judge_dims`
+4. `api/analytics.py` `compute_summary()` — aggregate dimensional scores per personality
+5. New eval chart: radar/spider per personality showing dimensional averages
+
+### Ridiculous stats (LinkedIn content)
+Script: `analysis/ridiculous_stats.py`
+
+Computes 7 cross-episode findings:
+1. **chaos_externality** — collateral damage ratio (area drama / directed drama). Thin until area drama appears in runs.
+2. **breakdown_brand_paradox** — did personalities who broke down end with more or less brand? (Current data: broke=79.2 avg, held=100.0)
+3. **mention_asymmetry** — directional mention counts; who obsesses over whom. (Current: Petra mentioned 115x by others, mentions back ~14x)
+4. **first_blood** — does first drama actor win the episode? (Current: 16.7% win rate — first mover disadvantage)
+5. **talk_vs_brand** — correlation between statement count and final brand
+6. **breakdown_speed** — avg statements until first breakdown per personality
+7. **wine_sensitivity** — avg composure drop per wine tick per personality
+
+**Workflow:**
+```bash
+.venv/bin/python3.12 analysis/ridiculous_stats.py > stats.json
+# paste stats.json into Claude with:
+# "Generate the UVIHA LinkedIn report from this data."
+```
+
+**Output style:** Self-contained HTML. Parody-academic + touch of camp.
+- Fake journal header: "Uncanny Valley Institute for Housewife Analytics, Vol. X"
+- Serif body, cream background, burgundy accents, hot pink callout boxes
+- One finding per section: pompous headline + deadpan copy + Chart.js mini chart
+- Absurd disclaimer footer
+- Screenshot-ready (~1200px wide)

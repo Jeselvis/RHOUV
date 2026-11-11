@@ -22,7 +22,9 @@ Install: pip install litellm
 """
 
 import os
+import time
 
+import httpx
 from dotenv import load_dotenv
 import litellm
 
@@ -46,6 +48,11 @@ MODELS = {
     # Audience agents: short structured JSON outputs, cheap model is fine.
     "audience":    os.getenv("MODEL_AUDIENCE",    "openai/~anthropic/claude-haiku-latest"),
 }
+
+# Image generation node config (Magica-specific async node API).
+# Override via MODEL_IMAGE in .env. Format: "{nodeType}:{subModelId}"
+_IMAGE_NODE_DEFAULT = "nano_banana_2:nano-banana-2-text"
+IMAGE_NODE = os.getenv("MODEL_IMAGE", _IMAGE_NODE_DEFAULT)
 
 
 # ─── Token accumulator ────────────────────────────────────────────────────────
@@ -118,3 +125,74 @@ def call(model: str, system: str, messages: list[dict], **kwargs) -> str:
         _token_totals["completion"] += response.usage.completion_tokens or 0
 
     return content or ""
+
+
+def generate_image(
+    prompt: str,
+    resolution: str = "512",
+    output_format: str = "JPEG",
+    poll_interval: float = 3.0,
+    max_polls: int = 30,
+) -> str | None:
+    """Generate an image via Magica's async node API. Returns CDN URL or None.
+
+    Uses IMAGE_NODE (default: nano_banana_2 — Gemini 3.1 Flash Image, cheap).
+    Override with MODEL_IMAGE=nodeType:subModelId in .env.
+
+    Args:
+        prompt:        Text description of the image.
+        resolution:    Magica resolution tier: "512" | "1K" | "2K" | "4K".
+        output_format: "JPEG" | "PNG" | "WebP".
+        poll_interval: Seconds between status polls.
+        max_polls:     Give up after this many polls (~90s at default interval).
+
+    Returns:
+        CDN URL string on success, None on failure or timeout.
+    """
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    base = os.getenv("OPENAI_API_BASE", "https://inference.magica.com/v1").rstrip("/")
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    # Parse nodeType:subModelId from IMAGE_NODE.
+    parts = IMAGE_NODE.split(":", 1)
+    node_type = parts[0]
+    sub_model = parts[1] if len(parts) > 1 else None
+
+    payload: dict = {
+        "input": {
+            "prompt": prompt,
+            "resolution": resolution,
+            "num_images": 1,
+            "output_format": output_format,
+        }
+    }
+    if sub_model:
+        payload["subModelId"] = sub_model
+
+    try:
+        with httpx.Client(timeout=15) as client:
+            # Submit the run.
+            resp = client.post(f"{base}/nodes/{node_type}/run", headers=headers, json=payload)
+            resp.raise_for_status()
+            run_id = resp.json()["runId"]
+
+            # Poll until completed or failed.
+            for _ in range(max_polls):
+                time.sleep(poll_interval)
+                poll = client.get(f"{base}/nodes/runs/{run_id}", headers=headers)
+                poll.raise_for_status()
+                data = poll.json()
+                status = data.get("status")
+                if status == "COMPLETED":
+                    results = data.get("output", {}).get("result", [])
+                    return results[0] if results else None
+                if status in ("FAILED", "CANCELED"):
+                    print(f"  [IMAGE] run {run_id} ended with status={status}")
+                    return None
+
+        print(f"  [IMAGE] run {run_id} timed out after {max_polls} polls")
+        return None
+
+    except Exception as exc:
+        print(f"  [IMAGE] generate_image failed: {exc}")
+        return None

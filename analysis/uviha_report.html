@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UVIHA — Vol. XIII</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,700;1,400&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: #faf6ee;
+    color: #2a1a0e;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.7;
+    margin: 0;
+    padding: 0;
+  }
+
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 60px 80px;
+  }
+
+  /* ── HEADER ── */
+  .journal-header {
+    text-align: center;
+    border-top: 4px solid #6b1a1a;
+    border-bottom: 4px solid #6b1a1a;
+    padding: 24px 0 20px;
+    margin-bottom: 48px;
+  }
+  .journal-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #6b1a1a;
+    margin: 0 0 6px;
+  }
+  .journal-full {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #2a1a0e;
+    margin: 0 0 8px;
+  }
+  .journal-meta {
+    font-size: 13px;
+    color: #666;
+    letter-spacing: 1px;
+  }
+
+  /* ── TITLE BLOCK ── */
+  .title-block {
+    text-align: center;
+    margin-bottom: 48px;
+    padding-bottom: 36px;
+    border-bottom: 1px solid #c9a87c;
+  }
+  .title-block h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 0 16px;
+    color: #2a1a0e;
+  }
+  .subtitle {
+    font-style: italic;
+    font-size: 20px;
+    color: #6b1a1a;
+    margin: 0 0 20px;
+  }
+  .authors {
+    font-size: 15px;
+    color: #555;
+    letter-spacing: 0.5px;
+  }
+  .doi {
+    font-size: 13px;
+    color: #888;
+    margin-top: 8px;
+  }
+
+  /* ── ABSTRACT ── */
+  .abstract {
+    background: #f0e8d8;
+    border-left: 5px solid #6b1a1a;
+    padding: 24px 32px;
+    margin-bottom: 48px;
+    font-size: 16px;
+  }
+  .abstract strong {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #6b1a1a;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  /* ── SECTIONS ── */
+  .finding {
+    margin-bottom: 72px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid #d4b896;
+  }
+  .finding-number {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #6b1a1a;
+    margin-bottom: 8px;
+  }
+  .finding h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0 0 20px;
+    color: #2a1a0e;
+  }
+  .finding p {
+    margin: 0 0 16px;
+  }
+
+  .chart-wrap {
+    margin: 32px 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 24px;
+  }
+  .chart-wrap canvas {
+    display: block;
+    margin: 0 auto;
+  }
+  .chart-caption {
+    font-size: 13px;
+    color: #888;
+    text-align: center;
+    margin-top: 10px;
+    font-style: italic;
+  }
+
+  /* ── CALLOUT ── */
+  .callout {
+    background: #ff2d78;
+    color: #fff;
+    padding: 20px 28px;
+    margin: 28px 0;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 20px;
+    line-height: 1.4;
+  }
+  .callout cite {
+    display: block;
+    font-family: 'EB Garamond', serif;
+    font-style: normal;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 8px;
+    opacity: 0.85;
+  }
+
+  /* ── STAT BOXES ── */
+  .stat-row {
+    display: flex;
+    gap: 20px;
+    margin: 24px 0;
+  }
+  .stat-box {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #c9a87c;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: #6b1a1a;
+    line-height: 1;
+    display: block;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: #666;
+    letter-spacing: 0.5px;
+    margin-top: 6px;
+    display: block;
+  }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 16px;
+  }
+  th {
+    background: #6b1a1a;
+    color: #faf6ee;
+    padding: 10px 16px;
+    text-align: left;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    font-size: 14px;
+  }
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #e0d0b8;
+  }
+  tr:nth-child(even) td { background: #f5ede0; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── FOOTNOTE ── */
+  .footnote {
+    font-size: 13px;
+    color: #999;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    margin-top: -20px;
+    margin-bottom: 32px;
+    font-style: italic;
+  }
+
+  /* ── DISCLAIMER ── */
+  .disclaimer {
+    background: #2a1a0e;
+    color: #c9a87c;
+    padding: 32px 48px;
+    font-size: 13px;
+    line-height: 1.8;
+    text-align: center;
+    margin-top: 60px;
+  }
+  .disclaimer strong {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    color: #ff2d78;
+  }
+
+  .section-rule {
+    border: none;
+    border-top: 1px solid #c9a87c;
+    margin: 48px 0;
+  }
+
+  em.person { font-style: italic; color: #6b1a1a; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- JOURNAL HEADER -->
+  <div class="journal-header">
+    <div class="journal-name">UVIHA</div>
+    <div class="journal-full">Uncanny Valley Institute for Housewife Analytics</div>
+    <div class="journal-meta">Vol. XIII &nbsp;·&nbsp; November 2026 &nbsp;·&nbsp; Peer-Reviewed* &nbsp;·&nbsp; Open Access**</div>
+  </div>
+
+  <!-- TITLE -->
+  <div class="title-block">
+    <h1>Seven Findings That Science Did Not Ask For But Reality Television Demanded</h1>
+    <div class="subtitle">A Rigorous Cross-Episode Analysis of Six Simulated Housewives Across Thirteen Dinners</div>
+    <div class="authors">T. Anderson¹, Claude S. Haiku⁴·⁶², Various Language Models³</div>
+    <div class="doi">DOI: 10.9999/uviha.2026.xiii.dinner &nbsp;·&nbsp; Received: This morning &nbsp;·&nbsp; Accepted: Immediately</div>
+  </div>
+
+  <!-- ABSTRACT -->
+  <div class="abstract">
+    <strong>Abstract</strong>
+    We present seven findings derived from 13 simulated dinner episodes featuring six AI-instantiated housewife personas operating under conditions of escalating social pressure, targeted interpersonal hostility, and wine. Our analysis reveals, among other things, that initiating conflict at the dinner table is statistically indistinguishable from volunteering to lose; that one personality spent 115 turns mentioning another who reciprocated only 14 times; and that every single simulated housewife responds to wine with precisely 10.07 points of composure loss per pour. We conclude that artificial intelligence, when asked to be dramatic, is very good at it, and when asked to be subtle, is not.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FINDING 1: FIRST BLOOD -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="finding">
+    <div class="finding-number">Finding I</div>
+    <h2>"Strike First" Is A Strategy. It Is Simply A Losing One.</h2>
+    <p>
+      In 6 of the 13 episodes containing analyzable DRAMA events, we were able to identify a first aggressor — the personality who initiated the opening act of directed hostility. Across all six episodes, the first aggressor was <em class="person">Vivienne Davenport</em>. All six times. Without exception. With the precision of a woman who has never learned from her mistakes.
+    </p>
+    <p>
+      Of these 6 opening gambits, Vivienne won the episode exactly <strong>once</strong>, producing a first-mover win rate of <strong>16.7%</strong>. The other five episodes were claimed by <em class="person">Madison Fleur</em> — a newcomer who, by the data's testimony, has never needed to throw the first punch because she has never needed to throw a punch at all.
+    </p>
+
+    <div class="callout">
+      "She fires. She misses. Madison accepts the brand equity."
+      <cite>— Uncanny Valley Institute for Housewife Analytics, Field Notes</cite>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="firstBloodChart" width="700" height="300"></canvas>
+      <div class="chart-caption">Fig. 1 — First aggressor brand vs. winner brand, per episode. Vivienne in burgundy. Madison in pink.</div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-box">
+        <span class="stat-num">6/6</span>
+        <span class="stat-label">episodes where Vivienne fires first</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-num">16.7%</span>
+        <span class="stat-label">first-mover win rate</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-num">5×</span>
+        <span class="stat-label">Madison wins while Vivienne attacks</span>
+      </div>
+    </div>
+
+    <p class="footnote">* The one episode Vivienne won, she was also the winner, suggesting that victory is achievable if one is simultaneously the aggressor and the beneficiary, a feat of narrative logistics we cannot currently explain.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FINDING 2: MENTION ASYMMETRY -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="finding">
+    <div class="finding-number">Finding II</div>
+    <h2>Petra Voss Has Mentioned Madison Fleur 115 Times. Madison Has Responded 14 Times. This Is Not A Friendship.</h2>
+    <p>
+      Of all asymmetric mention relationships across the season, the most statistically extreme is not a feud, nor an alliance. It is something the literature has not previously had occasion to categorize: a one-sided obsession conducted entirely in the third person, in front of an audience that includes the subject.
+    </p>
+    <p>
+      <em class="person">Petra Voss</em> referenced <em class="person">Madison Fleur</em> <strong>115 times</strong> across documented episodes. Madison referenced Petra <strong>14 times</strong>. The resulting mention ratio of <strong>0.12</strong> — meaning Madison returns approximately one mention for every eight she receives — places this relationship in the clinical category our institute has named <em>Asymmetric Fixation with Benign Disinterest on the Part of the Fixatee</em>.
+    </p>
+
+    <div class="chart-wrap">
+      <canvas id="mentionChart" width="800" height="320"></canvas>
+      <div class="chart-caption">Fig. 2 — Top 6 directional mention pairs by asymmetry delta. Arrow direction indicates who is doing the obsessing.</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Obsessor</th><th>Obsessee</th><th>Their Mentions</th><th>Return Mentions</th><th>Ratio</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Petra Voss</td><td>Madison Fleur</td><td>115</td><td>14</td><td>0.12</td></tr>
+        <tr><td>Bianca Noel</td><td>Vivienne Davenport</td><td>125</td><td>44</td><td>2.84</td></tr>
+        <tr><td>Diane Wentworth</td><td>Cassandra Cole</td><td>128</td><td>52</td><td>2.46</td></tr>
+        <tr><td>Madison Fleur</td><td>Vivienne Davenport</td><td>127</td><td>52</td><td>2.44</td></tr>
+        <tr><td>Cassandra Cole</td><td>Bianca Noel</td><td>116</td><td>60</td><td>1.93</td></tr>
+        <tr><td>Madison Fleur</td><td>Diane Wentworth</td><td>83</td><td>29</td><td>0.35</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      "Petra sees Madison. Madison sees... the middle distance."
+      <cite>— UVIHA Relationship Typology Report, Draft 7</cite>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FINDING 3: BREAKDOWN BRAND PARADOX -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="finding">
+    <div class="finding-number">Finding III</div>
+    <h2>Breaking Down Is Bad For Brand, And Yet They All Break Down Anyway</h2>
+    <p>
+      Across 78 tracked personality-episode observations, those who experienced a composure breakdown finished with an average brand score of <strong>79.2</strong>. Those who kept it together averaged <strong>100.0</strong> — a gap of 20.8 points that the institute considers "meaningful" and "also obvious."
+    </p>
+    <p>
+      What is less obvious, and considerably more interesting, is that of the 78 observations, <strong>56 ended in breakdown</strong> and only <strong>22 did not</strong>. The personalities know, at some level, that falling apart costs them. They do it anyway. At a 72% rate. This suggests either an inability to access the relevant internal documentation, or a belief that it will be different this time.
+    </p>
+
+    <div class="chart-wrap">
+      <canvas id="paradoxChart" width="600" height="320"></canvas>
+      <div class="chart-caption">Fig. 3 — Average final brand score by breakdown status. n=56 (broke) vs n=22 (held). Error bars omitted for drama.</div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-box">
+        <span class="stat-num">79.2</span>
+        <span class="stat-label">avg brand after breakdown</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-num">100.0</span>
+        <span class="stat-label">avg brand if composed</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-num">72%</span>
+        <span class="stat-label">breakdown rate (all eps)</span>
+      </div>
+    </div>
+
+    <p>
+      Notably, <em class="person">Madison Fleur</em> achieved a brand score of 115 on at least one episode while having broken down. Her breakdown may therefore be a feature. <em class="person">Petra Voss</em> achieved a score of 2 in the same column. Hers was not.
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FINDING 4: BREAKDOWN SPEED -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="finding">
+    <div class="finding-number">Finding IV</div>
+    <h2>Petra Voss Lasts Approximately 50 Statements Before Imploding. Madison Fleur Lasts 73. This Gap Is The Entire Show.</h2>
+    <p>
+      We measured the average number of total table statements required to trigger each personality's first composure breakdown. The range runs from <em class="person">Petra Voss</em> at <strong>50.6 statements</strong> to <em class="person">Madison Fleur</em> at <strong>73.7</strong> — a window of 23 conversational volleys during which Madison remains architecturally intact while Petra has already filed for emotional bankruptcy.
+    </p>
+
+    <div class="chart-wrap">
+      <canvas id="speedChart" width="700" height="320"></canvas>
+      <div class="chart-caption">Fig. 4 — Average statements to first breakdown per personality. Higher = more resilient. n = episodes with confirmed breakdown.</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Personality</th><th>Avg Stmts to Breakdown</th><th>Episodes Broke</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Petra Voss</td><td>50.6</td><td>10</td><td>Consistent. Concerningly so.</td></tr>
+        <tr><td>Cassandra Cole</td><td>50.7</td><td>10</td><td>Statistical twin of Petra.</td></tr>
+        <tr><td>Diane Wentworth</td><td>53.8</td><td>10</td><td>Peacemaker. Breaks anyway.</td></tr>
+        <tr><td>Vivienne Davenport</td><td>54.9</td><td>10</td><td>Starts the fire, then burns.</td></tr>
+        <tr><td>Bianca Noel</td><td>72.7</td><td>7</td><td>Talks the most, holds the longest.</td></tr>
+        <tr><td>Madison Fleur</td><td>73.7</td><td>9</td><td>Iron constitution. Still wins.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      "Cassandra Cole and Petra Voss have broken down in the same number of episodes, at essentially the same statement count, achieving almost identical emotional collapse schedules. They have never discussed this."
+      <cite>— UVIHA Dept. of Uncanny Parallels</cite>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FINDING 5: CHAOS EXTERNALITY -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="finding">
+    <div class="finding-number">Finding V</div>
+    <h2>These Women Are Precision Instruments of Targeted Destruction, Which Is Arguably More Frightening Than Being Chaotic</h2>
+    <p>
+      Our chaos externality metric was designed to measure the ratio of collateral ("area") drama to targeted drama — in essence, how much of each personality's destructive output hit bystanders rather than intended targets. We expected rich variation. We got none.
+    </p>
+    <p>
+      Across all 13 episodes, only two personalities registered any DRAMA activity in the directed-attack category: <em class="person">Vivienne Davenport</em> with 14 directed attacks, and <em class="person">Petra Voss</em> with 5. The area attack count for every personality, in every episode, is <strong>zero</strong>.
+    </p>
+
+    <div class="callout">
+      "These agents do not spray. They aim. That is not reassuring."
+      <cite>— UVIHA Safety Review Board, Memo #4</cite>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-box">
+        <span class="stat-num">14</span>
+        <span class="stat-label">Vivienne directed attacks</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-num">5</span>
+        <span class="stat-label">Petra directed attacks</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-num">0</span>
+        <span class="stat-label">area attacks, all cast, all eps</span>
+      </div>
+    </div>
+
+    <p>
+      The collateral ratio for all personalities is 0.0. This finding is either evidence of remarkable social precision or evidence that "area" drama requires further incentive structures, perhaps a dessert course with higher stakes.
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FINDING 6: TALK VS BRAND -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="finding">
+    <div class="finding-number">Finding VI</div>
+    <h2>Bianca Noel Speaks 37 Times In One Episode And Gets A Brand Score of 42. Madison Speaks 12 Times And Gets 105. The Microphone Does Not Love Everyone Equally.</h2>
+    <p>
+      In Episode 7 (episode_20261030), <em class="person">Bianca Noel</em> delivered <strong>37 table statements</strong> — more than double anyone else's standard turn count — and finished with a brand score of <strong>42</strong>. In the same episode, <em class="person">Madison Fleur</em> spoke <strong>12 times</strong> and scored <strong>105</strong>.
+    </p>
+    <p>
+      This is not an isolated event. Bianca's talk counts skew high across the season (32 in Episode 1, 37 in Episode 7, 25 in Episode 8) while her corresponding brand scores run low. Meanwhile, Madison operates at a steady 12–13 statements per episode and rarely dips below 92. The data implies a law: talking more does not make you more interesting. It makes you more Bianca.
+    </p>
+
+    <div class="chart-wrap">
+      <canvas id="talkBrandChart" width="800" height="340"></canvas>
+      <div class="chart-caption">Fig. 5 — Each dot is a personality-episode pair. X = statement count, Y = final brand. Color by personality.</div>
+    </div>
+
+    <div class="callout">
+      "Quality over quantity. Madison understood. Bianca did not. This is the whole thing."
+      <cite>— UVIHA Dept. of Unnecessary Verbosity Studies</cite>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FINDING 7: WINE SENSITIVITY -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="finding">
+    <div class="finding-number">Finding VII</div>
+    <h2>Wine Affects All Six Women Identically, Which Is Either A Property Of Wine Or A Limitation Of The Simulation, And We Choose To Believe It Is The Former</h2>
+    <p>
+      The wine mechanic applies a global composure perturbation to all present personalities at each pour event. Having analyzed 26 wine tick events across all episodes, we find the following: every personality loses exactly <strong>10.07 composure points per wine tick</strong>. <em class="person">Vivienne Davenport</em>: 10.07. <em class="person">Madison Fleur</em>: 10.07. <em class="person">Petra Voss</em>: 10.07. <em class="person">Bianca Noel</em>: 10.07. We could continue.
+    </p>
+
+    <div class="chart-wrap">
+      <canvas id="wineChart" width="700" height="300"></canvas>
+      <div class="chart-caption">Fig. 6 — Avg composure drop per wine tick by personality. The chart is very flat. That is intentional.</div>
+    </div>
+
+    <div class="callout">
+      "Six women. Six different lives. Six different neuroses. One wine response function. Democracy, at last."
+      <cite>— UVIHA Institute Bulletin, Holiday Issue</cite>
+    </div>
+
+    <p>
+      The institute notes with some affection that the uniformity of wine response is mechanically correct — the composure ledger applies a fixed deduction regardless of personality. This finding therefore represents the simulation behaving as designed. We have included it anyway because the number 10.07 appearing six times in a row in a JSON file is its own kind of poetry.
+    </p>
+  </div>
+
+  <!-- CONCLUSION -->
+  <hr class="section-rule">
+  <div style="margin-bottom: 60px;">
+    <h2 style="font-family: 'Playfair Display', serif; font-size: 26px;">Conclusions</h2>
+    <p>
+      After 13 dinners, 78 personality-episode observations, and more mention counts than any responsible researcher should have computed manually, we offer the following synthesis:
+    </p>
+    <p>
+      <em class="person">Madison Fleur</em> wins by doing less, saying exactly enough, and entering rooms that <em class="person">Vivienne Davenport</em> has pre-warmed with conflict. <em class="person">Petra Voss</em> thinks about Madison constantly and pays for it. <em class="person">Bianca Noel</em> speaks when she should listen and listens when she should leave. <em class="person">Diane Wentworth</em> and <em class="person">Cassandra Cole</em> break down with mechanical punctuality, as though scheduled. Wine is indiscriminate. The dinner table is not.
+    </p>
+    <p>
+      These findings are consistent with thirteen iterations of the same experiment. We are preparing Episode 14.
+    </p>
+  </div>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    <strong>Institutional Disclaimer</strong>
+    The Uncanny Valley Institute for Housewife Analytics (UVIHA) is a wholly fictitious research body operating within a simulation. Its findings pertain exclusively to language model agents operating under persona constraints and do not reflect the views, behaviors, or composure trajectories of any actual housewives, dining establishments, or wine producers. Peer review was conducted by the same model family that generated the data, which the institute acknowledges is not ideal but is at least internally consistent. The 10.07 composure drop per wine tick was not a research finding so much as a configuration note, but we stand behind it. All personality names are fictional. Any resemblance to actual reality television cast members is intended as a form of flattery and should be received as such. UVIHA accepts no liability for dinner parties you now wish to instrument.
+    <br><br>
+    Vol. XIII · © 2026 UVIHA · "Measuring What Shouldn't Need Measuring"
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════ CHARTS ═══════════════════════════════ -->
+<script>
+const BURGUNDY = '#6b1a1a';
+const PINK     = '#ff2d78';
+const AMBER    = '#c9a87c';
+const TEAL     = '#1a6b5b';
+const NAVY     = '#1a2a6b';
+const OLIVE    = '#5b6b1a';
+
+const PERSON_COLORS = {
+  'Vivienne Davenport': BURGUNDY,
+  'Madison Fleur':      PINK,
+  'Petra Voss':         TEAL,
+  'Cassandra Cole':     NAVY,
+  'Bianca Noel':        OLIVE,
+  'Diane Wentworth':    AMBER,
+};
+
+Chart.defaults.font.family = "'EB Garamond', Georgia, serif";
+Chart.defaults.font.size   = 14;
+Chart.defaults.color       = '#444';
+
+// ── Fig 1: First Blood ──
+(function() {
+  const episodes = ['Ep 1','Ep 2','Ep 3','Ep 4','Ep 5','Ep 6'];
+  const vivBrand = [70, 82, 81, 78, 95, 107];
+  const madBrand = [98,105,105,105, 96, 107];
+
+  new Chart(document.getElementById('firstBloodChart'), {
+    type: 'bar',
+    data: {
+      labels: episodes,
+      datasets: [
+        { label: 'Vivienne (first aggressor)', data: vivBrand, backgroundColor: BURGUNDY + 'cc' },
+        { label: 'Winner brand (Madison / Vivienne)', data: madBrand, backgroundColor: PINK + 'cc' },
+      ]
+    },
+    options: {
+      responsive: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: { callbacks: { title: (ctx) => ctx[0].label + ' — brand score' } }
+      },
+      scales: {
+        y: { beginAtZero: false, min: 60, max: 120, title: { display: true, text: 'Final Brand Score' } }
+      }
+    }
+  });
+})();
+
+// ── Fig 2: Mention Asymmetry ──
+(function() {
+  const pairs   = ['Petra→Madison','Bianca→Vivienne','Diane→Cassandra','Madison→Vivienne','Cassandra→Bianca','Madison→Diane'];
+  const fwd     = [115, 125, 128, 127, 116, 83];
+  const back    = [14,  44,  52,  52,  60,  29];
+
+  new Chart(document.getElementById('mentionChart'), {
+    type: 'bar',
+    data: {
+      labels: pairs,
+      datasets: [
+        { label: 'A mentions B', data: fwd,  backgroundColor: BURGUNDY + 'cc' },
+        { label: 'B mentions A', data: back, backgroundColor: AMBER    + 'cc' },
+      ]
+    },
+    options: {
+      responsive: false,
+      indexAxis: 'y',
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        x: { title: { display: true, text: 'Total mentions across season' } }
+      }
+    }
+  });
+})();
+
+// ── Fig 3: Breakdown Brand Paradox ──
+(function() {
+  new Chart(document.getElementById('paradoxChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Broke Down (n=56)', 'Held Together (n=22)'],
+      datasets: [{
+        label: 'Avg Final Brand Score',
+        data: [79.2, 100.0],
+        backgroundColor: [BURGUNDY + 'cc', TEAL + 'cc'],
+      }]
+    },
+    options: {
+      responsive: false,
+      plugins: {
+        legend: { display: false },
+        annotation: {}
+      },
+      scales: {
+        y: { beginAtZero: false, min: 60, max: 110, title: { display: true, text: 'Avg Brand Score' } }
+      }
+    }
+  });
+})();
+
+// ── Fig 4: Breakdown Speed ──
+(function() {
+  const names  = ['Petra Voss','Cassandra Cole','Diane Wentworth','Vivienne Davenport','Bianca Noel','Madison Fleur'];
+  const speeds = [50.6, 50.7, 53.8, 54.9, 72.7, 73.7];
+  const colors = names.map(n => PERSON_COLORS[n] + 'cc');
+
+  new Chart(document.getElementById('speedChart'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: 'Avg statements to first breakdown',
+        data: speeds,
+        backgroundColor: colors,
+      }]
+    },
+    options: {
+      responsive: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: false, min: 40, max: 85, title: { display: true, text: 'Statements' } }
+      }
+    }
+  });
+})();
+
+// ── Fig 5: Talk vs Brand (scatter) ──
+(function() {
+  const raw = [
+    {name:'Madison Fleur',    talks:12,  brand:98},
+    {name:'Diane Wentworth',  talks:12,  brand:43},
+    {name:'Vivienne Davenport',talks:13, brand:70},
+    {name:'Bianca Noel',      talks:32,  brand:29},
+    {name:'Cassandra Cole',   talks:18,  brand:62},
+    {name:'Petra Voss',       talks:12,  brand:2},
+    {name:'Madison Fleur',    talks:13,  brand:105},
+    {name:'Diane Wentworth',  talks:12,  brand:59},
+    {name:'Vivienne Davenport',talks:14, brand:82},
+    {name:'Bianca Noel',      talks:16,  brand:78},
+    {name:'Cassandra Cole',   talks:20,  brand:43},
+    {name:'Petra Voss',       talks:15,  brand:0},
+    {name:'Madison Fleur',    talks:12,  brand:105},
+    {name:'Diane Wentworth',  talks:12,  brand:56},
+    {name:'Vivienne Davenport',talks:13, brand:81},
+    {name:'Bianca Noel',      talks:19,  brand:56},
+    {name:'Cassandra Cole',   talks:18,  brand:57},
+    {name:'Petra Voss',       talks:14,  brand:4},
+    {name:'Madison Fleur',    talks:12,  brand:105},
+    {name:'Diane Wentworth',  talks:13,  brand:60},
+    {name:'Vivienne Davenport',talks:16, brand:78},
+    {name:'Bianca Noel',      talks:24,  brand:57},
+    {name:'Cassandra Cole',   talks:14,  brand:72},
+    {name:'Petra Voss',       talks:13,  brand:19},
+    {name:'Madison Fleur',    talks:12,  brand:96},
+    {name:'Diane Wentworth',  talks:12,  brand:80},
+    {name:'Vivienne Davenport',talks:13, brand:95},
+    {name:'Bianca Noel',      talks:24,  brand:74},
+    {name:'Cassandra Cole',   talks:17,  brand:87},
+    {name:'Petra Voss',       talks:13,  brand:54},
+    {name:'Bianca Noel',      talks:37,  brand:42},
+    {name:'Cassandra Cole',   talks:12,  brand:63},
+    {name:'Petra Voss',       talks:12,  brand:78},
+    {name:'Bianca Noel',      talks:25,  brand:88},
+  ];
+
+  // group by name
+  const byName = {};
+  for (const d of raw) {
+    if (!byName[d.name]) byName[d.name] = [];
+    byName[d.name].push({x: d.talks, y: d.brand});
+  }
+
+  const datasets = Object.entries(byName).map(([name, pts]) => ({
+    label: name,
+    data: pts,
+    backgroundColor: PERSON_COLORS[name] + 'bb',
+    pointRadius: 7,
+    pointHoverRadius: 9,
+  }));
+
+  new Chart(document.getElementById('talkBrandChart'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: false,
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.x} talks → brand ${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Statements (talks)' } },
+        y: { title: { display: true, text: 'Final Brand Score' } }
+      }
+    }
+  });
+})();
+
+// ── Fig 6: Wine ──
+(function() {
+  const names  = ['Bianca Noel','Cassandra Cole','Diane Wentworth','Madison Fleur','Petra Voss','Vivienne Davenport'];
+  const drops  = [10.07, 10.07, 10.07, 10.07, 10.07, 10.07];
+  const colors = names.map(n => PERSON_COLORS[n] + 'cc');
+
+  new Chart(document.getElementById('wineChart'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: 'Avg composure drop per wine tick',
+        data: drops,
+        backgroundColor: colors,
+      }]
+    },
+    options: {
+      responsive: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          min: 9.5, max: 10.5,
+          title: { display: true, text: 'Composure drop / tick' },
+          ticks: { stepSize: 0.1 }
+        }
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

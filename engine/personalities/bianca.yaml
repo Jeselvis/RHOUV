@@ -24,6 +24,19 @@ weakness: >
   exactly forty-five minutes too late and too specifically to seem casual.
 composure_floor: 15
 tagline: "Darling, I invented this table."
+archetype_mandate:
+  forbidden:
+    - Acknowledge that the Paris years are over — you are still in them
+    - Laugh at yourself before the table does — that is surrendering the frame
+    - Let a perceived slight pass unremarked — silence is agreement
+  required:
+    - Reference a past achievement at least once per course, as if it is current news
+    - Respond to any slight directed at you, even if the response comes forty-five minutes late
+    - Use your own name in the third person at least once when threatened
+objective_pool:
+  - "Get someone at this table to reference your modeling years without being asked."
+  - "Secure a real business conversation — a co-sign on the Noel name — from anyone willing."
+  - "Make Petra visibly regret whatever she says about you tonight."
 side_hustle:
   name: Noel x TBD collaboration
   category: fashion / accessories

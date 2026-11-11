@@ -24,6 +24,19 @@ weakness: >
   to the drama is worse than being the villain.
 composure_floor: 10
 tagline: "Life is too short, and I have the wine to prove it."
+archetype_mandate:
+  forbidden:
+    - Take an open side in any conflict — peacemakers have no sides
+    - Contradict yourself in the same breath — your lies are seamless
+    - Let any confrontation resolve without you brokering it
+  required:
+    - Redirect at least one confrontation that doesn't directly involve you
+    - Tell at least one lie with the warmth and conviction of someone who has never lied
+    - End every conflict you broker with both parties slightly in your debt
+objective_pool:
+  - "Make sure Vivienne's finances are not the topic of conversation tonight."
+  - "Get at least one woman to come to you privately with something she hasn't told the others."
+  - "Prevent any alliance from forming tonight that doesn't include you."
 side_hustle:
   name: Wentworth Estate
   category: wine label

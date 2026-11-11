@@ -6,6 +6,8 @@ function ProductBadge({ persona }) {
   const first = persona.name.split(' ')[0].toLowerCase()
   const brand = persona.side_hustle?.name
   const category = persona.side_hustle?.category
+  // Pivot-generated image takes priority over static product image
+  const imageSrc = persona.side_hustle?.image_path || `/images/products/${first}.jpg`
   const fallbackLetter = brand ? brand[0].toUpperCase() : '?'
   const [imgFailed, setImgFailed] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -39,7 +41,7 @@ function ProductBadge({ persona }) {
       >
         {!imgFailed ? (
           <img
-            src={`/images/products/${first}.jpg`}
+            src={imageSrc}
             onError={() => setImgFailed(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             alt={brand ?? ''}
@@ -81,7 +83,7 @@ function ProductBadge({ persona }) {
           }}
         >
           <img
-            src={`/images/products/${first}.jpg`}
+            src={imageSrc}
             style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }}
             alt={brand ?? ''}
           />
@@ -180,7 +182,7 @@ function PersonaCard({ persona }) {
 }
 
 export default function OpeningCredits({ onBegin }) {
-  const { personas, file, runs, loading, isFilming, startRun } = useEpisode()
+  const { latestPersonas: personas, file, runs, loading, isFilming, startRun } = useEpisode()
   const [filming, setFilming] = useState(false)
   const [filmError, setFilmError] = useState(null)
 

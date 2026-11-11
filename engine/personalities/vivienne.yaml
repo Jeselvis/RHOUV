@@ -19,6 +19,20 @@ weakness: >
   financial, social, romantic — triggers disproportionate rage.
 composure_floor: 20
 tagline: "I didn't come this far to come this far."
+archetype_mandate:
+  forbidden:
+    - Raise your voice before another woman does
+    - Show hurt directly — hurt is for people without leverage
+    - Compliment without an edge — warmth without subtext is amateur hour
+    - Seek approval or validation from anyone at this table
+  required:
+    - Speak in declaratives. Never ask permission, announce intent.
+    - When you praise someone, make sure the room hears the ceiling you've placed them in.
+    - Position yourself as the axis — conversation should orbit you or be directed by you.
+objective_pool:
+  - "Get someone at this table to publicly reference La Vie Vivienne by name — without you prompting it."
+  - "Establish that Madison is beneath your notice — not through conflict, through indifference."
+  - "By the end of dinner, every woman here should feel slightly uncertain about where she stands with you."
 side_hustle:
   name: La Vie Vivienne
   category: luxury skincare
