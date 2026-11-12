@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useEpisode } from '../hooks/useEpisode'
-import { avatarStyle, portraitStyle } from '../castConfig'
+import { avatarStyle, portraitStyle, DEFAULT_PRODUCT_IMAGES, brandTier } from '../castConfig'
 
 function ProductBadge({ persona }) {
   const first = persona.name.split(' ')[0].toLowerCase()
   const brand = persona.side_hustle?.name
   const category = persona.side_hustle?.category
   // Pivot-generated image takes priority over static product image
-  const imageSrc = persona.side_hustle?.image_path || `/images/products/${first}.jpg`
+  const imageSrc = persona.side_hustle?.image_path || DEFAULT_PRODUCT_IMAGES[persona.name] || `/images/products/${first}.jpg`
   const fallbackLetter = brand ? brand[0].toUpperCase() : '?'
   const [imgFailed, setImgFailed] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -111,7 +111,61 @@ function ProductBadge({ persona }) {
   )
 }
 
-function PersonaCard({ persona }) {
+function StatusBadge({ score }) {
+  const [hovered, setHovered] = useState(false)
+  const tier = brandTier(score)
+  return (
+    <div
+      style={{ position: 'absolute', top: 8, left: 8 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          background: tier.bg,
+          border: '2px solid rgba(255,255,255,.88)',
+          boxShadow: '0 2px 8px rgba(0,0,0,.28)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 13,
+          cursor: 'default',
+          userSelect: 'none',
+        }}
+      >
+        {tier.icon}
+      </div>
+      {hovered && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 34,
+            left: 0,
+            background: tier.bg,
+            color: tier.fg,
+            padding: '4px 8px',
+            borderRadius: 4,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '.1em',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,.2)',
+            zIndex: 10,
+          }}
+        >
+          {tier.label}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PersonaCard({ persona, brandScore = 100 }) {
   return (
     <div
       style={{
@@ -133,6 +187,7 @@ function PersonaCard({ persona }) {
             ...portraitStyle(persona.name),
           }}
         />
+        <StatusBadge score={brandScore} />
         {persona.side_hustle && <ProductBadge persona={persona} />}
       </div>
       <div
@@ -182,7 +237,7 @@ function PersonaCard({ persona }) {
 }
 
 export default function OpeningCredits({ onBegin }) {
-  const { latestPersonas: personas, file, runs, loading, isFilming, startRun } = useEpisode()
+  const { latestPersonas: personas, latestBrand, file, runs, loading, isFilming, startRun } = useEpisode()
   const [filming, setFilming] = useState(false)
   const [filmError, setFilmError] = useState(null)
 
@@ -363,7 +418,7 @@ export default function OpeningCredits({ onBegin }) {
           }}
         >
           {personas.map((p) => (
-            <PersonaCard key={p.name} persona={p} />
+            <PersonaCard key={p.name} persona={p} brandScore={latestBrand[p.name]?.score ?? 100} />
           ))}
           {/* Placeholder cards while loading */}
           {personas.length === 0 &&

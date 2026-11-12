@@ -191,9 +191,11 @@ def generate_cast_reads_tweets(
     for event in event_log:
         if event.get("type") != "audience_tweet":
             continue
-        target = event.get("target") or ""
+        target_parts = (event.get("target") or "").lower().split()
+        if not target_parts:
+            continue
         for name in names:
-            if target.lower().split()[0] == name.lower().split()[0]:
+            if target_parts[0] == name.lower().split()[0]:
                 tweets_by_target[name].append(event)
 
     # Build a quick lookup: name → persona card voice

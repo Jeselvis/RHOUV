@@ -85,7 +85,7 @@ export default function HumanReview({ file, onClose }) {
         top: 72,
         right: 24,
         width: 320,
-        background: 'var(--panel-bg)',
+        background: 'rgba(255,255,255,.97)',
         border: 'var(--panel-border)',
         borderRadius: 'var(--panel-radius)',
         boxShadow: '0 8px 40px rgba(20,40,80,.2)',

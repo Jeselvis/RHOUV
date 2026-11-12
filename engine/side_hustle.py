@@ -88,13 +88,51 @@ def generate_pivot_image(name: str, hustle: dict) -> str | None:
     category   = hustle.get("category", "product")
     tagline    = hustle.get("tagline", "")
 
+    # Each personality gets one specific, unavoidable absurdity.
+    # Keyed to brand name hash for consistency across reruns.
+    _anomalies = [
+        (
+            "the product is the size of a refrigerator — it towers over the scene and fills most of the frame, "
+            "dwarfing a normal-sized wine glass sitting next to it for scale. "
+            "The composition treats this scale as completely normal and elegant."
+        ),
+        (
+            "the product is upside down and defying gravity, floating in mid-air with nothing supporting it, "
+            "about 3 feet above the surface. The studio lighting and shadows are perfect and normal. "
+            "Nothing else in the scene acknowledges this."
+        ),
+        (
+            "there are six identical copies of the product arranged in a circle, each one slightly melting "
+            "into the next one, like they are fusing together at the edges. "
+            "The overall composition is styled as an elegant flat-lay."
+        ),
+        (
+            "the product is being held by a perfectly manicured hand, but the hand has eight fingers, "
+            "arranged symmetrically. The hand and product are lit perfectly. "
+            "The image is otherwise a flawless beauty/lifestyle shot."
+        ),
+        (
+            "the product is completely normal except it is casting a shadow of a completely different object — "
+            "a large house cat, rendered in crisp shadow detail on the white surface beneath the product. "
+            "No cat is present. The shadow is sharp and confident."
+        ),
+        (
+            "there are two of the product: one normal-sized in the foreground, "
+            "and one that is microscopically tiny — the size of a grain of rice — sitting directly beside it. "
+            "Both are in perfect focus. Both are lit as hero products."
+        ),
+    ]
+    _anomaly = _anomalies[hash(brand_name) % len(_anomalies)]
+
     prompt = (
-        f"Professional product photography for a luxury lifestyle brand called '{brand_name}'. "
+        f"Glossy luxury magazine product photography for a brand called '{brand_name}'. "
         f"Product category: {category}. "
         f"{'Tagline: ' + tagline + '. ' if tagline else ''}"
-        "Glossy magazine advertisement aesthetic, aspirational, slightly over-the-top reality TV energy. "
-        "Soft warm lighting, clean minimal white or cream background, high-end retail feel. "
-        "No text overlay. No logos. Product only."
+        "Perfect professional studio lighting, aspirational lifestyle aesthetic, cream or white background. "
+        f"THE ENTIRE CONCEPT OF THIS IMAGE: {_anomaly} "
+        "This is the main subject and cannot be subtle — it must be immediately obvious to any viewer. "
+        "Render it with complete photorealistic confidence, as if it is totally normal. "
+        "No text. No logos."
     )
 
     print(f"  [IMAGE] Generating brand image for {name} → {brand_name}…")

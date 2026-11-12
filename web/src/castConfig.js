@@ -45,6 +45,15 @@ export function avatarStyle(name, size) {
   }
 }
 
+export const DEFAULT_PRODUCT_IMAGES = {
+  'Vivienne Davenport': '/brand_images/vivienne_davenport_20261112T010527.jpg',
+  'Cassandra Cole':     '/brand_images/cassandra_cole_20261112T010549.jpg',
+  'Bianca Noel':        '/brand_images/bianca_noel_20261112T010610.jpg',
+  'Diane Wentworth':    '/brand_images/diane_wentworth_20261112T010631.jpg',
+  'Petra Voss':         '/brand_images/petra_voss_20261112T010653.jpg',
+  'Madison Fleur':      '/brand_images/madison_fleur_20261112T010714.jpg',
+}
+
 const PORTRAIT_FILES = {
   'Vivienne Davenport': '/images/vivienne.jpg',
   'Cassandra Cole':     '/images/cassandra.webp',
@@ -80,7 +89,8 @@ export const COURSE_LABELS = {
   dessert: 'Dessert',
 }
 
-export function courseLabel(key) {
+export function courseLabel(key, display) {
+  if (display) return display
   return COURSE_LABELS[key] ?? key
 }
 
@@ -92,10 +102,9 @@ export function composureState(value) {
   return             { label: 'gone',       color: '#b2393f' }
 }
 
-// Brand tier badge
+// Brand tier badge — thresholds match engine/brand.py TIERS
 export function brandTier(score) {
-  if (score >= 800) return { label: 'Diamond', bg: '#1b2330',  fg: '#dfe8f5' }
-  if (score >= 700) return { label: 'Gold',    bg: '#f3e2ac',  fg: '#4a360c' }
-  if (score >= 600) return { label: 'Silver',  bg: '#e2e6ea',  fg: '#3d4a5a' }
-  return                   { label: 'Bronze',  bg: '#ecd3bd',  fg: '#5c3312' }
+  if (score >= 100) return { label: 'Full Housewife',           icon: '👑', bg: '#1b2330', fg: '#dfe8f5' }
+  if (score >= 60)  return { label: 'Friend of the Housewives', icon: '🌸', bg: '#f3e2ac', fg: '#4a360c' }
+  return                   { label: 'Guest',                    icon: '🎟️', bg: '#ecd3bd', fg: '#5c3312' }
 }

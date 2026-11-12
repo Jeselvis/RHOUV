@@ -12,11 +12,12 @@ function useCourseList(allEvents) {
 }
 
 export default function CourseStrip() {
-  const { course, allEvents } = useEpisode()
+  const { course, courseDisplay, courseDisplayMap, allEvents } = useEpisode()
   const courseList = useCourseList(allEvents)
   if (!courseList.length) return null
 
   const currentIdx = courseList.indexOf(course)
+  const currentLabel = courseDisplay ?? courseLabel(course)
 
   return (
     <div
@@ -38,7 +39,7 @@ export default function CourseStrip() {
         }}
       >
         {course
-          ? `Course ${currentIdx + 1} of ${courseList.length} · ${courseLabel(course)}`
+          ? `Course ${currentIdx + 1} of ${courseList.length} · ${currentLabel}`
           : 'Loading…'}
       </div>
 
@@ -76,7 +77,7 @@ export default function CourseStrip() {
           whiteSpace: 'nowrap',
         }}
       >
-        {courseList.map(courseLabel).join(' · ')}
+        {courseList.map(c => courseDisplayMap[c] ?? courseLabel(c)).join(' · ')}
       </div>
     </div>
   )

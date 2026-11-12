@@ -42,7 +42,7 @@ from engine.alliances import AllianceLedger, check_alliance_signal
 from engine.audience import load_audience_personas, generate_tweets, generate_cast_reads_tweets, AUDIENCE_TRIGGERS
 from engine.brand import BrandLedger
 from engine.composure import ComposureLedger
-from engine.director import Director, INTERRUPT_COMPOSURE_HIT, DEFAULT_CONFESSIONAL_EVERY
+from engine.director import Director, INTERRUPT_COMPOSURE_HIT, DEFAULT_CONFESSIONAL_EVERY, Scene
 from engine.drama import check_drama_signal, apply_drama_consequences
 from engine.llm import call, MODELS, reset_token_totals, get_token_totals, override_models
 from engine.memory import load_memory, save_memory, extract_memory, build_memory_injection
@@ -70,6 +70,7 @@ LOBBY_TURNS = 3
 
 def load_scenario(slug: str) -> dict:
     """Load a scenario config from engine/scenarios/{slug}.yaml."""
+    slug = slug.replace("-", "_")
     path = SCENARIOS_DIR / f"{slug}.yaml"
     if not path.exists():
         raise FileNotFoundError(f"Scenario not found: {path}")
@@ -802,6 +803,111 @@ RULES:
     return memories
 
 
+def run_room_pick_scene(
+    names: list[str],
+    personas: dict[str, dict],
+    roommates: dict[str, str],
+    composure: "ComposureLedger",
+    alliances: "AllianceLedger",
+    prior_memory,
+    log_fn,
+    fast: bool = False,
+) -> None:
+    """Whole-cast scene: everyone reacts to room assignments being announced.
+
+    Each personality gets 1-2 turns (1 in fast mode). Reactions are informed
+    by who their roommate is, any existing feuds/alliances, and their archetype.
+    Logs as room_pick_talk events.
+    """
+    # Build room-pairs summary (deduplicated)
+    seen: set = set()
+    pair_lines = []
+    for a, b in roommates.items():
+        pair = frozenset([a, b])
+        if pair not in seen:
+            seen.add(pair)
+            pair_lines.append(f"  - {a} & {b}")
+    rooms_summary = "\n".join(pair_lines) if pair_lines else "  (no pairs)"
+
+    turns_per_person = 1 if fast else 2
+    # Round-robin: each person speaks in order, repeated turns_per_person times
+    speaker_order = names * turns_per_person
+    scene_log: list[dict] = []
+
+    print(f"\n  [ROOM PICK SCENE]")
+
+    for turn_speaker in speaker_order:
+        card = personas[turn_speaker]
+        my_roommate = roommates.get(turn_speaker, "no one")
+        composure_injection = composure.prompt_modifier(turn_speaker)
+        memory_injection = build_memory_injection(turn_speaker, prior_memory)
+
+        alliance_section = ""
+        if alliances:
+            status = alliances.status_for(turn_speaker)
+            if status:
+                lines = "\n".join(f"- {o}: {k}" for o, k in status.items())
+                alliance_section = f"\nYOUR ALLIANCES (private):\n{lines}\n"
+
+        system = f"""You are {turn_speaker}, {card['archetype']} on "The Real Housewives of Uncanny Valley."
+
+The group has just arrived at the villa. Room assignments are being announced.
+Your roommate is: {my_roommate}.
+
+Room pairings:
+{rooms_summary}
+
+YOUR VOICE:
+{card['voice'].strip()}
+
+YOUR GOAL:
+{card['goal'].strip()}
+{alliance_section}
+RULES:
+- Speak only as {turn_speaker}. Stay in character. 2–3 sentences.
+- React to your room assignment and/or someone else's. This is a social power moment.
+- Do not reference the show, cameras, or production.
+- When you decide to ally with someone in this moment, end with: ALLY: <name>
+- When someone here has crossed you, end with: FEUD: <name>
+- Use at most ONE of ALLY / FEUD per turn."""
+
+        if composure_injection:
+            system = f"COMPOSURE STATE: {composure_injection}\n\n{system}"
+        if memory_injection:
+            system = f"{memory_injection}\n\n{system}"
+
+        if scene_log:
+            ctx = "\n".join(f"{e['speaker']}: {e['content']}" for e in scene_log)
+        else:
+            ctx = (
+                f"The group has just walked into the villa lobby. "
+                f"The host is reading out the room assignments. "
+                f"Everyone is listening."
+            )
+
+        messages = [{"role": "user", "content": ctx}]
+        raw = call(MODELS["personality"], system, messages, max_tokens=1024)
+
+        alliance_kind, alliance_target, clean_speech = check_alliance_signal(raw, names)
+
+        ts = datetime.now(timezone.utc).isoformat()
+        ev = {
+            "type":      "room_pick_talk",
+            "speaker":   turn_speaker,
+            "content":   clean_speech,
+            "scene":     "room_pick",
+            "roommate":  my_roommate,
+            "timestamp": ts,
+        }
+        log_fn(ev)
+        print_event(ev)
+        scene_log.append({"speaker": turn_speaker, "content": clean_speech})
+
+        if alliance_kind and alliance_target and alliance_target != turn_speaker:
+            alliance_ev = alliances.set(turn_speaker, alliance_target, alliance_kind)
+            log_fn(alliance_ev)
+
+
 # ─── Main loop ────────────────────────────────────────────────────────────────
 
 def run_episode(
@@ -865,8 +971,7 @@ def run_episode(
 
     # ── Scenario config ────────────────────────────────────────────────────────
     scenario_cfg: dict = {}
-    scenario_phases: list[str] = []
-    scenario_phase_map: dict[str, dict] = {}  # phase_name -> phase dict
+    scenario_scenes: list[Scene] = []
     scenario_twist_prompt: str | None = None
     scenario_setting: str | None = None
 
@@ -876,21 +981,21 @@ def run_episode(
         # --fast mode: drop the last phase
         if fast and len(phases) > 3:
             phases = phases[:3]
-        scenario_phases = [p["name"] for p in phases]
-        scenario_phase_map = {p["name"]: p for p in phases}
+        for p in phases:
+            scenario_scenes.append(Scene(
+                id=p["name"],
+                display=p.get("label", p["name"]),
+                context=p.get("context"),
+                environment=p.get("environment", []),
+            ))
         scenario_twist_prompt = scenario_cfg.get("twist_prompt")
         scenario_setting = scenario_cfg.get("setting")
         log({
             "type":      "scenario_start",
             "scenario":  scenario_cfg.get("name", scenario),
-            "phases":    scenario_phases,
+            "phases":    [s.id for s in scenario_scenes],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
-
-    phase_environments = {
-        p["name"]: p.get("environment", [])
-        for p in scenario_cfg.get("phases", [])
-    } if scenario_cfg else {}
 
     from engine.composure import WINE_TICK_AMOUNT as _WINE_TICK_DEFAULT
     composure = ComposureLedger(names, floors=floors, wine_tick_amount=_WINE_TICK_DEFAULT * wine_amount)
@@ -898,9 +1003,8 @@ def run_episode(
         names,
         turns_per_course=turns_per_course,
         confessional_every=confessional_every,
-        courses=scenario_phases if scenario_phases else None,
+        scenes=scenario_scenes if scenario_scenes else None,
         twist_prompt=scenario_twist_prompt,
-        phase_environments=phase_environments,
     )
 
     if prior_memory and prior_memory.get("alliances"):
@@ -972,6 +1076,12 @@ def run_episode(
                 seen.add(pair)
                 print(f"    {a} + {b}")
 
+        # ── Room pick scene — cast reacts to assignments ───────────────────────
+        run_room_pick_scene(
+            names, personas, roommates, composure, alliances,
+            prior_memory, log, fast=fast,
+        )
+
     # ── Secret objectives — one per personality, picked from their pool ────────
     secret_objectives: dict[str, str] = {}
     for name in names:
@@ -1013,9 +1123,11 @@ def run_episode(
             wine_events = composure.wine_tick()
             for we in wine_events:
                 log(we)
+            _cscene = director.current_scene
             transition_event = {
-                "type":   "course_transition",
-                "course": current_course,
+                "type":    "course_transition",
+                "course":  current_course,
+                "display": _cscene.display if _cscene else current_course,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             log(transition_event)
@@ -1059,10 +1171,12 @@ def run_episode(
         composure_injection = composure.prompt_modifier(speaker)
         memory_injection    = build_memory_injection(speaker, prior_memory)
         pre_dinner_mem      = pre_dinner_memories.get(speaker)
-        # Resolve current phase context + environment for scenario runs.
-        current_phase_cfg = scenario_phase_map.get(course_label, {}) if scenario else {}
-        phase_ctx = current_phase_cfg.get("context") or scenario_setting
-        phase_env = current_phase_cfg.get("environment")
+        # Resolve current scene — fall back to last scene when director is done.
+        current_scene_obj = director.current_scene
+        scene_id    = current_scene_obj.id if current_scene_obj else director._scenes[-1].id
+        scene_label = current_scene_obj.display if current_scene_obj else scene_id
+        phase_ctx   = (current_scene_obj.context if current_scene_obj else None) or scenario_setting
+        phase_env   = current_scene_obj.environment if current_scene_obj else []
 
         system = build_personality_system(
             speaker, personas, composure_injection,
@@ -1082,8 +1196,6 @@ def run_episode(
         public_context = build_public_context(event_log, window=public_context_window)
 
         # ── Construct the message history ─────────────────────────────────────
-        course_label = director.current_course if not director.is_done else "dessert"
-
         if is_interrupt_turn:
             user_content = (
                 f"You just cut someone off. You have the floor.\n\n"
@@ -1091,7 +1203,7 @@ def run_episode(
             )
         else:
             user_content = (
-                f"Course: {course_label}.\n\n"
+                f"Scene: {scene_label}.\n\n"
                 f"Recent table talk:\n{public_context}"
             )
             if twist:
@@ -1135,7 +1247,8 @@ def run_episode(
             "type":      "table_talk",
             "speaker":   speaker,
             "content":   clean_speech,
-            "course":    course_label,
+            "course":    scene_id,
+            "display":   scene_label,
             "composure": composure.composure(speaker),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
@@ -1183,7 +1296,8 @@ def run_episode(
                 "action_class": drama_class,
                 "target":       drama_target,
                 "description":  drama_desc,
-                "course":       course_label,
+                "course":       scene_id,
+                "display":      scene_label,
                 "timestamp":    datetime.now(timezone.utc).isoformat(),
             }
             log(drama_event)

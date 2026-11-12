@@ -48,16 +48,18 @@ Defaults (in `engine/llm.py`) are all three → `openai/~anthropic/claude-haiku-
 
 **Known gotcha:** Models with `"reasoning":true` in Magica's catalog (DeepSeek flash, and all Claude models) use internal thinking tokens against the `max_tokens` budget. At 200 tokens they return empty content with `finish_reason='length'`. Current fix: personality/confessional calls use `max_tokens=1024`, director/judge use `max_tokens=512`. Do not lower these.
 
-## Engine status: M1 + M2 + physical escalation complete
+## Engine status: M1 + M2 + physical escalation + personas + scenarios complete
 
 All files exist and the dinner loop runs end to end:
-- `engine/llm.py` — LiteLLM wrapper, model strings from env
+- `engine/llm.py` — LiteLLM wrapper, model strings from env; `generate_image()` for Magica async node API
 - `engine/composure.py` — composure ledger + wine escalation
 - `engine/brand.py` — brand value ledger; accepts `starting_scores` dict for cross-episode carry-over
-- `engine/director.py` — turn order, twists (1 per course), interrupt protocol
+- `engine/director.py` — turn order, twists (1 per course), interrupt protocol; `Scene` dataclass + `DEFAULT_SCENES`; injectable `scenes`/`twist_prompt`
 - `engine/drama.py` — DRAMA: signal parsing, classification (`targeted`/`area`/`exit`/`scene`), consequence application
-- `engine/run.py` — full dinner loop + pre-dinner scene + lobby mechanic + DRAMA wiring
-- `engine/personalities/*.yaml` — 6 persona cards (each has `title_card_position: 1-6`, L→R)
+- `engine/run.py` — full dinner loop + pre-dinner scene + lobby mechanic + DRAMA wiring + scenario support + secret objectives
+- `engine/side_hustle.py` — brand pivot LLM + image generation (`generate_pivot_image`)
+- `engine/personalities/*.yaml` — 6 persona cards; each has `archetype_mandate` (forbidden/required) + `objective_pool` (3 objectives)
+- `engine/scenarios/girls_trip.yaml` — Girls Trip scenario config (4 phases, room assignment, per-phase environment props)
 - `engine/offscreen/*.yaml` — 8 off-screen characters
 - `engine/__init__.py` — needed for `python -m engine.run`
 
@@ -68,6 +70,7 @@ Episode logs saved to `runs/` as JSONL.
 - `--personalities N` — limit cast size
 - `--no-drama` — disable DRAMA: signal (baseline runs)
 - `--no-pre-dinner` — skip pre-dinner sub-group scene
+- `--scenario SLUG` — load scenario from `engine/scenarios/{slug}.yaml` (e.g. `--scenario girls-trip`)
 
 ### Key engine mechanics
 - **Brand scores carry over** across episodes via `prior_memory["personalities"][name]["brand_end"]` → seeded into `BrandLedger(starting_scores=...)`
@@ -75,6 +78,47 @@ Episode logs saved to `runs/` as JSONL.
 - **Lobby mechanic**: personality who fires `exit` DRAMA absent for `LOBBY_TURNS=3` turns; if lobby already occupied, triggers private 2-person scene (`lobby_talk` events)
 - **DRAMA: signal**: appended by personality at end of turn, regex-parsed, stripped from public speech, classified by keywords; consequences applied to brand + composure
 - **Feud-aware drama prompt**: composure < 40 + active feud → "available"; active feud only → "possible but costly"; no feud → "almost never appropriate"
+- **Archetype mandates**: each persona YAML has `archetype_mandate.forbidden` (hard rules never to break) and `archetype_mandate.required` (must-do behaviors); injected into system prompt under `ARCHETYPE RULES` section
+- **Secret objectives**: each persona YAML has `objective_pool` (3 options); `run_episode()` picks one per personality at start; injected into system prompt under `SECRET OBJECTIVE`; logged as `objectives_assigned` event
+- **Brand pivot image gen**: `side_hustle_pivot` event triggers `generate_pivot_image()` → Magica async node API → saved to `web/public/brand_images/{slug}_{ts}.jpg`; `image_path` stored on event
+
+### Scenario system
+Scenario YAML structure (`engine/scenarios/*.yaml`):
+```yaml
+name: "Girls Trip"
+setting_context: "..."   # injected into every personality system prompt
+phases:                  # replaces default COURSES list
+  - id: arrival
+    display: "Arrival & Check-In"
+    turns: 3
+    environment:
+      - "Marco the pool attendant..."   # list of props/people in scene
+  - id: pool_day
+    ...
+twist_prompt: "..."      # replaces default director twist prompt
+rooms:
+  size: 2
+  feud_same_room: false  # composure penalty if feuding pair roomed together
+```
+
+`Director` accepts `scenes: list[Scene]` and `twist_prompt` kwargs — scenario builds `scenario_scenes: list[Scene]` from YAML phases and injects both. Each `Scene` carries `id`, `display`, `context`, `environment` — no parallel dicts needed.
+Room assignment is feud-aware; feud roommates get composure penalty logged as `composure_delta` event.
+
+### Brand pivot images (Magica async node API)
+`generate_image()` in `engine/llm.py`:
+- POST `{base}/nodes/{nodeType}/run` → `{runId}`
+- Poll GET `{base}/nodes/runs/{runId}` until `status == "COMPLETED"`
+- Returns CDN URL; `generate_pivot_image()` downloads + saves locally
+
+Image model config: `MODEL_IMAGE=nano_banana_2:nano-banana-2-text` (default). Override via `.env`.
+
+**NOT yet implemented** (designed, documented in README/build-log):
+- Per-archetype wine sensitivity (`wine_sensitivity` float in YAMLs)
+- Voluntary `DRINK:` signal with `drink_tendency` per YAML
+- Cross-episode drink reinforcement learning
+- Simmering mechanic
+- Director temperature tracker / heat mechanic
+- Rivalry intensity float
 
 ## UI status: M3 complete
 
@@ -84,11 +128,17 @@ Stack: React + Vite, FastAPI SSE, D3 charts. Running at `web/`.
 
 ### Key UI files
 - `web/src/pages/EvalPage.jsx` — eval dashboard with all charts + controls
-- `web/src/components/EpisodeFeed.jsx` — live event feed with grouped private scenes, drama cards, line-break fix
-- `web/src/hooks/useEpisode.jsx` — SSE + run state; handles all event types incl. drama/lobby/pre-dinner
+- `web/src/components/EpisodeFeed.jsx` — live event feed with grouped private scenes, drama cards, `SideHustlePivotCard` (renders brand image strip when `event.image_path` present)
+- `web/src/components/OpeningCredits.jsx` — front page cast grid; `ProductBadge` uses `persona.side_hustle?.image_path` priority over static `/images/products/`; uses `latestPersonas` (pivot-aware before playback)
+- `web/src/hooks/useEpisode.jsx` — episode state; `latestPersonas` = full-episode hustle overrides for opening screen; `effectivePersonas` = cursor-limited for playback
 - `web/src/castConfig.js` — `CAST_ORDER`, `personaColor()`, `FIRST_NAME_MAP`, etc.
 - `api/analytics.py` — shared analytics; `compute_summary()` produces all chart data
 - `api/server.py` — FastAPI; `/api/eval/summary`, `/api/run`, `/api/models`, `/api/config/*`
+
+### Brand image display pipeline
+`side_hustle_pivot` event → `deriveState()` merges `{ ...e.new_hustle, image_path: e.image_path }` into `hustleOverrides[speaker]` → `latestPersonas` (all events, not cursor-sliced) → `OpeningCredits` `ProductBadge` uses `persona.side_hustle?.image_path || /images/products/${first}.jpg`.
+
+**Key gotcha:** `effectivePersonas` is cursor-limited (0 before playback starts) — always use `latestPersonas` on the opening screen.
 
 ### Eval charts (in order)
 1. Token cost table
@@ -110,7 +160,9 @@ Each run object includes: `brand_over_time`, `final_brand`, `composure_over_time
 `alliance_timeline`: `[{idx, stmt, a, b, kind}]` — every alliance/feud/interrupt in order; kind = `"ally"` | `"feud"` | `"interrupt"`.
 
 ### EpisodeFeed event types
-`table_talk`, `confessional`, `brand_delta`, `composure_delta`, `twist`, `interrupt`, `alliance_formed`, `feud_declared`, `drama_action`, `pre_dinner_talk`, `lobby_talk`, `lobby_return`
+`table_talk`, `confessional`, `brand_delta`, `composure_delta`, `twist`, `interrupt`, `alliance_formed`, `feud_declared`, `drama_action`, `pre_dinner_talk`, `lobby_talk`, `lobby_return`, `side_hustle_pivot`, `audience_tweet`, `cast_reads_tweets`
+
+`course_transition`, `table_talk`, `drama_action` events carry both `"course"` (machine id, backward-compat) and `"display"` (human label, e.g. `"Day 1 — Arrival"`). Old JSONLs without `display` fall through to `COURSE_LABELS` lookup in `courseLabel(key, display?)`.
 
 Private talk events (`pre_dinner_talk`, `lobby_talk`) are grouped into `PrivateSceneGroup` cards (light blue palette). Drama cards have red/amber left border + action class badge.
 

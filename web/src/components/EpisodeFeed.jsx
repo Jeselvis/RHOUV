@@ -428,7 +428,7 @@ function CourseDivider({ event }) {
           color: 'var(--gold-text)',
         }}
       >
-        {courseLabel(event.course)}
+        {courseLabel(event.course, event.display)}
       </div>
       <div style={{ flex: 1, height: 1, background: 'rgba(160,124,52,.4)' }} />
     </div>
@@ -959,15 +959,16 @@ function groupFeed(feed) {
   let i = 0
   while (i < feed.length) {
     const item = feed[i]
-    if (item.feedType === 'pre_dinner' || item.feedType === 'lobby') {
+    if (item.feedType === 'pre_dinner' || item.feedType === 'lobby' || item.feedType === 'room_pick') {
       const sceneType = item.feedType
-      const pKey = JSON.stringify((item.participants ?? []).slice().sort())
+      // room_pick is whole-cast — group all consecutive regardless of participants
+      const pKey = sceneType === 'room_pick' ? 'all' : JSON.stringify((item.participants ?? []).slice().sort())
       const group = [item]
       let j = i + 1
       while (
         j < feed.length &&
         feed[j].feedType === sceneType &&
-        JSON.stringify((feed[j].participants ?? []).slice().sort()) === pKey
+        (sceneType === 'room_pick' || JSON.stringify((feed[j].participants ?? []).slice().sort()) === pKey)
       ) {
         group.push(feed[j])
         j++
@@ -995,7 +996,10 @@ function groupFeed(feed) {
 function PrivateSceneGroup({ group }) {
   const { sceneType, items } = group
   const isPreDinner = sceneType === 'pre_dinner'
-  const headerLabel = isPreDinner ? 'Before Dinner' : 'Lobby'
+  const isRoomPick  = sceneType === 'room_pick'
+  const headerLabel = isPreDinner ? 'Before Dinner' : isRoomPick ? 'Room Pick' : 'Lobby'
+  const headerBg    = isRoomPick ? '#d8c8e8' : '#c8dbe8'
+  const headerBorder = isRoomPick ? '#b0a0cc' : '#b9cddb'
   const first = items[0] ?? {}
   const participants = Array.isArray(first.participants)
     ? first.participants.map((n) => n.split(' ')[0]).join(' + ')
@@ -1004,14 +1008,14 @@ function PrivateSceneGroup({ group }) {
     <div
       style={{
         borderRadius: 6,
-        border: '1px solid #b9cddb',
+        border: `1px solid ${headerBorder}`,
         overflow: 'hidden',
       }}
     >
       {/* Scene header */}
       <div
         style={{
-          background: '#c8dbe8',
+          background: headerBg,
           padding: '7px 14px',
           display: 'flex',
           alignItems: 'center',

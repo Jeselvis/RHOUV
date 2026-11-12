@@ -2,6 +2,22 @@
 
 ---
 
+## 2026-11-11 — Scene abstraction refactor
+
+**What:** Collapsed three parallel phase-tracking data structures into a single `Scene` dataclass.
+
+**Before:** `Director` accepted `courses: list[str]`, `phase_environments: dict[str, list[str]]`, and `run.py` maintained a separate `scenario_phase_map: dict[str, dict]`. Keeping them in sync required three separate lookups on every turn, and the UI had a `COURSE_LABELS` dict that only knew about dinner courses — scenario phases like `"arrival"` fell through to raw key display. There was also a hardcoded `"dessert"` fallback when `director.is_done`.
+
+**After:** One `Scene` dataclass (`id`, `display`, `context`, `environment`). `DEFAULT_SCENES` replaces `COURSES`. `Director.__init__` takes `scenes: list[Scene] | None`. `run.py` scenario loading builds `scenario_scenes: list[Scene]` from YAML phases. Per-turn phase resolution reads `director.current_scene` once; fallback when done uses `director._scenes[-1]` (last scene) instead of a hardcoded string. `course_transition`, `table_talk`, and `drama_action` events now carry a `display` field alongside `course` (backward-compat key).
+
+**UI:** `courseLabel(key, display)` passes `display` through if present, falls back to `COURSE_LABELS` for old JSONLs. `EpisodeFeed` `CourseDivider` passes `event.display`. `useEpisode` `deriveState` builds `courseDisplay` (current, cursor-limited) and `courseDisplayMap` (id → label, full-episode) from `course_transition` events. `CourseStrip` uses `courseDisplay ?? courseLabel(course)` for the current label and `courseDisplayMap[c] ?? courseLabel(c)` for the full course sequence footer — so girls-trip runs show "Day 1 — Arrival · Day 2 — Pool Day · Day 2 — Group Dinner Out" without any hardcoded mapping.
+
+Modified: `engine/director.py`, `engine/run.py`, `web/src/castConfig.js`, `web/src/components/EpisodeFeed.jsx`, `web/src/hooks/useEpisode.jsx`, `web/src/components/CourseStrip.jsx`.
+
+**Why:** Three parallel data structures with the same conceptual content — same phase, three different representations — is a maintenance hazard. Any new scenario field (a phase title, description, props) required touching `director.py`, `run.py`, and potentially `castConfig.js` separately. With `Scene`, adding a field means editing one dataclass and one YAML block; the event pipeline and UI inherit it automatically via `display`. The hardcoded `"dessert"` fallback was also wrong for scenario runs — if a girls-trip run ended mid-flight, it would tag events with `"dessert"` instead of the last scenario phase name.
+
+---
+
 ## 2026-11-10 — Drink system design (implementation pending)
 
 **What:** Three-layer design for wine/drink mechanics that go beyond the current uniform composure drop. Not yet implemented — documented here as a design decision before build.

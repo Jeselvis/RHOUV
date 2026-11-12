@@ -20,6 +20,58 @@ function useFlash(key, trigger) {
   return flash
 }
 
+function TierIcon({ tier }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          background: tier.bg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 11,
+          userSelect: 'none',
+          cursor: 'default',
+        }}
+      >
+        {tier.icon}
+      </div>
+      {hovered && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 28,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: tier.bg,
+            color: tier.fg,
+            padding: '3px 7px',
+            borderRadius: 3,
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: '.12em',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,.18)',
+            zIndex: 20,
+          }}
+        >
+          {tier.label}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BoardRow({ name, rank, score, delta }) {
   const flash = useFlash(name, delta)
   const tier = brandTier(score)
@@ -63,21 +115,7 @@ function BoardRow({ name, rank, score, delta }) {
         }}
       />
       <div style={{ fontWeight: 600, fontSize: 14 }}>{name.split(' ')[0]}</div>
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '.14em',
-          textTransform: 'uppercase',
-          padding: '3px 7px',
-          borderRadius: 2,
-          background: tier.bg,
-          color: tier.fg,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {tier.label}
-      </div>
+      <TierIcon tier={tier} />
       <div
         style={{
           fontFamily: 'var(--font-mono)',

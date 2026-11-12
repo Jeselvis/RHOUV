@@ -1,5 +1,5 @@
 {
-  "episode_count": 9,
+  "episode_count": 10,
   "alliances": [
     {
       "a": "Bianca Noel",
@@ -69,131 +69,131 @@
     {
       "a": "Bianca Noel",
       "b": "Madison Fleur",
-      "kind": "feud"
+      "kind": "ally"
     }
   ],
   "personalities": {
     "Bianca Noel": {
-      "brand_end": 29.0,
-      "composure_min": 35.0,
-      "interruptions_received": [],
-      "interruptions_given": [
-        "Cassandra Cole"
+      "brand_end": 15.0,
+      "composure_min": 20.0,
+      "interruptions_received": [
+        "Petra Voss",
+        "Petra Voss"
       ],
-      "grudges": [],
+      "interruptions_given": [],
+      "grudges": [
+        "Petra Voss"
+      ],
       "audience_sentiment": {
-        "approval_avg": 0.3,
-        "tweet_count": 10,
+        "approval_avg": 0.64,
+        "tweet_count": 28,
         "notable_tweets": [
-          "@profdrngozi: \"Bianca just turned Diane into a private asset with 'just us,' which is a textbook move for pulling someone out of the co\"",
-          "@profdrngozi: \"Bianca asking Diane to sit beside her for the envelope is a textbook coalition move, and I refuse to call it anything le\""
+          "@girlbossvibes: \"okay the way bianca just reached across the table and claimed madison like a prada bag at a sample sale. the strategy is\"",
+          "@profdrngozi: \"Bianca just recruited Madison into a coalition by flattering her as the only one who 'wants to know,' which is textbook \""
         ]
       },
       "current_side_hustle": {
-        "name": "Pure Noel Clean Slate",
-        "category": "Organic clean beauty skincare line",
-        "tagline": "Clean slate. Clean skin. Clean conscience. I've never been more authentic.",
+        "name": "Reborn by Noel",
+        "category": "Luxury alkaline bottled water",
+        "tagline": "Pure. Reborn. Totally Unbothered.",
         "status": "pivot \u2014 announced this episode"
       }
     },
     "Cassandra Cole": {
-      "brand_end": 64.0,
-      "composure_min": 30.0,
-      "interruptions_received": [
-        "Bianca Noel"
-      ],
-      "interruptions_given": [
-        "Diane Wentworth",
-        "Petra Voss",
-        "Diane Wentworth"
-      ],
-      "grudges": [
-        "Bianca Noel"
-      ],
+      "brand_end": 76.0,
+      "composure_min": 25,
+      "interruptions_received": [],
+      "interruptions_given": [],
+      "grudges": [],
       "audience_sentiment": {
-        "approval_avg": 0.6,
-        "tweet_count": 15,
+        "approval_avg": 1.0,
+        "tweet_count": 2,
         "notable_tweets": [
-          "@garymcallister55: \"Cassandra Cole is the only one at that table asking a reasonable question, and I will die on this hill. Madison Fleur, w\"",
-          "@garymcallister55: \"I did not expect a twist at this dinner, and frankly I am still catching up on the Madison Fleur situation. Cassandra Co\""
+          "@profdrngozi: \"Madison just turned Cassandra's 'who briefed you' into a hostile audit of her own bags, and I will admit, with my academ\"",
+          "@profdrngozi: \"Madison refusing to be the one who owes someone is a clean refusal of the economy of obligation Cassandra keeps trying t\""
         ]
       },
       "current_side_hustle": null
     },
     "Diane Wentworth": {
-      "brand_end": 45.0,
-      "composure_min": 45.0,
-      "interruptions_received": [
-        "Cassandra Cole",
-        "Cassandra Cole"
+      "brand_end": 51.0,
+      "composure_min": 10,
+      "interruptions_received": [],
+      "interruptions_given": [
+        "Petra Voss"
       ],
-      "interruptions_given": [],
-      "grudges": [
-        "Cassandra Cole"
-      ],
+      "grudges": [],
       "audience_sentiment": {
-        "approval_avg": 0.04,
-        "tweet_count": 24,
+        "approval_avg": 0.5,
+        "tweet_count": 8,
         "notable_tweets": [
-          "@blessed_mom_of_4: \"Lord have mercy, Diane just offered Madison a safe place to set her burdens down, and that's Galatians 6:2 if I ever hea\"",
-          "@dramaericxo: \"SCREAMING. Bianca just ushered Diane into a 'just us' coffee and I need a moment. Diane has been holding secrets since t\""
+          "@girlbossvibes: \"the way that bianca turned her phone face-down like it personally offended her, I cannot. and diane handing out swimsuit\"",
+          "@blessed_mom_of_4: \"Lord have mercy, Diane just put Cassandra in her place with a bottle and a look! Bless her heart, she's been a Proverbs \""
         ]
       },
       "current_side_hustle": null
     },
     "Madison Fleur": {
-      "brand_end": 108.0,
+      "brand_end": 119.0,
       "composure_min": 30,
       "interruptions_received": [],
       "interruptions_given": [],
       "grudges": [],
       "audience_sentiment": {
-        "approval_avg": 1.75,
-        "tweet_count": 8,
+        "approval_avg": 1.12,
+        "tweet_count": 32,
         "notable_tweets": [
-          "@girlbossvibes: \"madison said 'an expensive habit i haven't learned yet' and i cannot. she made cassandra look like she's the one who nee\"",
-          "@girlbossvibes: \"madison said 'i only listen to people who say something worth hearing twice' and then touched her napkin. the way that i\""
+          "@girlbossvibes: \"madison really said 'receipts are only useful to people who still have something to return' and then turned to vivienne \"",
+          "@girlbossvibes: \"madison taking the radiator so vivienne keeps the view is the most strategic thing i've seen all season. she gave up the\""
         ]
       },
       "current_side_hustle": null
     },
     "Petra Voss": {
-      "brand_end": 14.0,
+      "brand_end": 16.0,
       "composure_min": 35,
       "interruptions_received": [
-        "Cassandra Cole"
+        "Diane Wentworth"
       ],
-      "interruptions_given": [],
+      "interruptions_given": [
+        "Vivienne Davenport",
+        "Bianca Noel",
+        "Bianca Noel"
+      ],
       "grudges": [
-        "Cassandra Cole"
+        "Diane Wentworth"
       ],
       "audience_sentiment": {
-        "approval_avg": 0.23,
-        "tweet_count": 13,
+        "approval_avg": -0.04,
+        "tweet_count": 24,
         "notable_tweets": [
-          "@dramaericxo: \"PETRA. 'A third party is just a person with a more polite lawyer' and she didn't even blink at Diane's sacrament bit. Sh\"",
-          "@vivienne_nation: \"MOTHER. \"Finished being interviewed\" is going on a MUG. Petra has been cutting lamb like it owes her money for three epi\""
+          "@dramaericxo: \"Petra just said 'those are different sentences' and I need a moment. SCREAMING. Madison's apology had a tag still on it \"",
+          "@dramaericxo: \"Petra said 'the Wentworth that's been mentioned twice since the airport' and I need a moment. Madison turning toward the\""
         ]
       },
       "current_side_hustle": {
-        "name": "Petra's Pure Harvest",
-        "category": "Premium organic bone broth",
-        "tagline": "Every Sip Is a Fresh Start: Nourished, Grounded, Forgiven.",
+        "name": "Halo by Petra Voss",
+        "category": "Artisanal sourdough bread subscription",
+        "tagline": "Rising above it. Literally.",
         "status": "pivot \u2014 announced this episode"
       }
     },
     "Vivienne Davenport": {
-      "brand_end": 80.0,
-      "composure_min": 40.0,
-      "interruptions_received": [],
+      "brand_end": 71.0,
+      "composure_min": 20,
+      "interruptions_received": [
+        "Petra Voss"
+      ],
       "interruptions_given": [],
-      "grudges": [],
+      "grudges": [
+        "Petra Voss"
+      ],
       "audience_sentiment": {
-        "approval_avg": 0.83,
-        "tweet_count": 6,
+        "approval_avg": 1.57,
+        "tweet_count": 7,
         "notable_tweets": [
-          "@dramaericxo: \"Petra asked about the first husband's lawyers and I need a moment. SCREAMING. 'Some people mistake a balance sheet for a\"",
-          "@garymcallister55: \"I must say Vivienne Davenport handled that with real composure, and I have been doing this kind of work for thirty years\""
+          "@garymcallister55: \"Vivienne Davenport handled that with the composure of a woman who has never once knocked over a champagne flute, and I r\"",
+          "@garymcallister55: \"Vivienne Davenport remains the most composed person at that table, and I say that as an accountant who has reconciled wo\""
         ]
       },
       "current_side_hustle": null

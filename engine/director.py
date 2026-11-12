@@ -25,12 +25,24 @@ based on what's already happened at the table. Everything else is pure logic.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from engine.llm import call, MODELS
 
 
-COURSES = ["appetizer", "main", "dessert"]
+@dataclass
+class Scene:
+    id: str                            # machine key: "appetizer" | "arrival" | etc.
+    display: str                       # human label: "Amuse-bouche" | "Day 1 — Arrival"
+    context: str | None = None         # scenario setting text injected into prompts
+    environment: list[str] = field(default_factory=list)
+
+
+DEFAULT_SCENES: list[Scene] = [
+    Scene(id="appetizer", display="Amuse-bouche"),
+    Scene(id="main",      display="Main"),
+    Scene(id="dessert",   display="Dessert"),
+]
 
 # Default director twist prompt (dinner scenario).
 _DEFAULT_TWIST_PROMPT = (
@@ -73,26 +85,23 @@ class Director:
         personalities: list[str],
         turns_per_course: int = DEFAULT_TURNS_PER_COURSE,
         confessional_every: int = DEFAULT_CONFESSIONAL_EVERY,
-        courses: list[str] | None = None,
+        scenes: list[Scene] | None = None,
         twist_prompt: str | None = None,
-        phase_environments: dict[str, list[str]] | None = None,
     ):
         """
         Args:
-            personalities:      Ordered list of personality names. Round-robin follows this order.
-            turns_per_course:   How many turns each personality gets per course.
+            personalities:    Ordered list of personality names. Round-robin follows this order.
+            turns_per_course: How many turns each personality gets per course.
             confessional_every: Fire a confessional flag every N table-talk turns.
-            courses:            Ordered list of course/phase names. Defaults to COURSES (dinner).
-            twist_prompt:       System prompt override for the director's twist generator.
-                                Defaults to the standard dinner-twist prompt.
-            phase_environments: Dict of {phase_name: [prop strings]} injected into twist context.
+            scenes:           Ordered list of Scene objects. Defaults to DEFAULT_SCENES (dinner).
+            twist_prompt:     System prompt override for the director's twist generator.
+                              Defaults to the standard dinner-twist prompt.
         """
         self._personalities = list(personalities)
         self._turns_per_course = turns_per_course
         self._confessional_every = confessional_every
-        self._courses = list(courses) if courses else list(COURSES)
+        self._scenes = list(scenes) if scenes else list(DEFAULT_SCENES)
         self._twist_prompt = twist_prompt or _DEFAULT_TWIST_PROMPT
-        self._phase_environments: dict[str, list[str]] = phase_environments or {}
 
         self._course_idx = 0       # index into _courses
         self._course_turn = 0      # turns completed in current course
@@ -105,16 +114,22 @@ class Director:
     # ------------------------------------------------------------------
 
     @property
+    def current_scene(self) -> Scene | None:
+        """Current Scene object, or None if the episode is over."""
+        if self._course_idx >= len(self._scenes):
+            return None
+        return self._scenes[self._course_idx]
+
+    @property
     def current_course(self) -> str:
-        """Name of the current course/phase, or "done" if the episode is over."""
-        if self._course_idx >= len(self._courses):
-            return "done"
-        return self._courses[self._course_idx]
+        """Id of the current course/phase, or 'done' if the episode is over. Backward-compat alias."""
+        scene = self.current_scene
+        return scene.id if scene else "done"
 
     @property
     def is_done(self) -> bool:
         """True after all courses/phases are complete."""
-        return self._course_idx >= len(self._courses)
+        return self._course_idx >= len(self._scenes)
 
     def next_turn(self, event_log: list[dict]) -> Turn:
         """Advance one turn and return the Turn descriptor.
@@ -163,7 +178,7 @@ class Director:
         self._course_turn += 1
         self._speaker_idx = (self._speaker_idx + 1) % len(self._personalities)
 
-        # Move to next course when all turns in this course are done.
+        # Move to next scene when all turns in this scene are done.
         turns_in_course = self._turns_per_course * len(self._personalities)
         if self._course_turn >= turns_in_course:
             self._course_idx += 1
@@ -227,17 +242,19 @@ class Director:
         else:
             context = "The scene has just started and conversation is getting underway."
 
-        env_props = self._phase_environments.get(self.current_course, [])
+        scene = self.current_scene
+        env_props = scene.environment if scene else []
         env_section = ""
         if env_props:
             env_lines = "\n".join(f"- {p}" for p in env_props)
             env_section = f"\nWhat's physically present in this scene:\n{env_lines}\n"
 
+        phase_label = scene.display if scene else self.current_course
         messages = [
             {
                 "role": "user",
                 "content": (
-                    f"Current phase: {self.current_course}.{env_section}\n"
+                    f"Current phase: {phase_label}.{env_section}\n"
                     f"Recent conversation:\n{context}\n\n"
                     "Write the twist. Speak as the producer narrating what just happened."
                 ),

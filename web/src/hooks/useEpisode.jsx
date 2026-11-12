@@ -69,7 +69,9 @@ function deriveState(events, personas) {
 
   const feed = []
   const hustleOverrides = {}  // speaker name → new side_hustle dict (from pivot events)
+  const courseDisplayMap = {}  // course id → display label (from course_transition events)
   let course = null
+  let courseDisplay = null
 
   for (const e of events) {
     switch (e.type) {
@@ -81,6 +83,8 @@ function deriveState(events, personas) {
         break
       case 'course_transition':
         course = e.course
+        courseDisplay = e.display ?? null
+        if (e.display) courseDisplayMap[e.course] = e.display
         // Only add to feed if there are prior events (not a start-of-run emit)
         if (feed.length > 0) feed.push({ feedType: 'course', ...e })
         break
@@ -104,6 +108,9 @@ function deriveState(events, personas) {
         break
       case 'pre_dinner_talk':
         feed.push({ feedType: 'pre_dinner', ...e })
+        break
+      case 'room_pick_talk':
+        feed.push({ feedType: 'room_pick', ...e })
         break
       case 'lobby_talk':
         feed.push({ feedType: 'lobby', ...e })
@@ -130,7 +137,7 @@ function deriveState(events, personas) {
   }
 
   const edges = inferAlliances(events)
-  return { feed, brand, composure, edges, course, hustleOverrides }
+  return { feed, brand, composure, edges, course, courseDisplay, courseDisplayMap, hustleOverrides }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -271,8 +278,8 @@ function useEpisodeState() {
     return () => clearTimeout(timer)
   }, [playing, cursor, allEvents.length, speed])
 
-  // Derived state
-  const { feed, brand, composure, edges, course, hustleOverrides } = useMemo(
+  // Derived state (cursor-limited for playback)
+  const { feed, brand, composure, edges, course, courseDisplay, hustleOverrides } = useMemo(
     () => deriveState(allEvents.slice(0, cursor), personas),
     [allEvents, cursor, personas]
   )
@@ -285,8 +292,8 @@ function useEpisodeState() {
     [personas, hustleOverrides]
   )
 
-  // Latest hustle overrides across ALL events — used by OpeningCredits before playback starts
-  const { hustleOverrides: latestHustleOverrides } = useMemo(
+  // Full-episode derivation — used for opening screen (latestPersonas, latestBrand) and courseDisplayMap
+  const { hustleOverrides: latestHustleOverrides, brand: latestBrand, courseDisplayMap } = useMemo(
     () => deriveState(allEvents, personas),
     [allEvents, personas]
   )
@@ -326,7 +333,7 @@ function useEpisodeState() {
     personas: effectivePersonas,
     latestPersonas,
     // Derived
-    feed, brand, composure, edges, course,
+    feed, brand, composure, edges, course, courseDisplay, courseDisplayMap, latestBrand,
   }
 }
 
